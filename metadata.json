@@ -1,0 +1,9 @@
+{
+  "name": "WowSociety - Brand Command Center",
+  "description": "A premium executive growth ecosystem for high-level marketing strategy, tracking growth phases from Start to Elite.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
