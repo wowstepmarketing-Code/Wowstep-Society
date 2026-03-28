@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useRef } from 'react';
-import { supabase, isSupabaseConfigured, supabaseConfigStatus, checkSupabaseHealth } from '../lib/supabaseClient';
+import { supabase, isSupabaseConfigured, supabaseConfigStatus, checkSupabaseHealth, finalUrl, finalKey } from '../lib/supabaseClient';
 import { UserRole, Profile, User } from '../types';
 
 console.log("SUPABASE CONFIG:", {
@@ -37,12 +37,14 @@ async function fetchMyProfile(userId: string, email?: string, retryCount = 0): P
   console.log(`fetchMyProfile called for: ${userId} (attempt ${retryCount + 1}) at ${new Date().toISOString()}`);
   
   try {
-    // Add 10-second timeout per attempt (reduced from 30s for faster recovery)
+    // Increase timeouts: 15s for first attempt, 30s for retry
+    const currentTimeout = retryCount === 0 ? 15000 : 30000;
+    
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('PROFILE_FETCH_TIMEOUT')), 10000)
+      setTimeout(() => reject(new Error('PROFILE_FETCH_TIMEOUT')), currentTimeout)
     );
     
-    // Attempt to fetch profile
+    // Attempt to fetch profile via Supabase client
     const queryPromise = supabase
       .from('profiles')
       .select('id,email,full_name,role,onboarding_complete')
@@ -75,16 +77,38 @@ async function fetchMyProfile(userId: string, email?: string, retryCount = 0): P
   } catch (err: any) {
     console.error(`fetchMyProfile EXCEPTION (Attempt ${retryCount + 1}):`, err.message || 'UNKNOWN_ERROR');
     
-    // Retry logic: up to 3 retries (4 attempts total)
-    if (retryCount < 3) {
-      const backoff = (retryCount + 1) * 1500; 
+    // If we hit a timeout or error, try a direct REST fetch as a last resort before retrying or falling back
+    if (err.message === 'PROFILE_FETCH_TIMEOUT' || err.message?.includes('fetch')) {
+       console.log("Attempting direct REST fetch fallback...");
+       try {
+         const restResponse = await fetch(`${finalUrl}/rest/v1/profiles?id=eq.${userId}&select=id,email,full_name,role,onboarding_complete`, {
+           headers: {
+             'apikey': finalKey,
+             'Authorization': `Bearer ${finalKey}`
+           }
+         });
+         if (restResponse.ok) {
+           const restData = await restResponse.json();
+           if (restData && restData.length > 0) {
+             console.log("Direct REST fetch successful!");
+             return restData[0] as Profile;
+           }
+         }
+       } catch (restErr) {
+         console.error("Direct REST fetch fallback failed:", restErr);
+       }
+    }
+
+    // Retry logic: up to 1 retry (2 attempts total)
+    if (retryCount < 1) {
+      const backoff = 2000; 
       console.log(`Retrying profile fetch in ${backoff}ms...`);
       await new Promise(resolve => setTimeout(resolve, backoff));
       return fetchMyProfile(userId, email, retryCount + 1);
     }
     
-    // FINAL FALLBACK: If all retries fail, return a fail-safe profile to prevent blocking the app
-    console.warn("CRITICAL: Profile fetch failed after all retries. Using fail-safe profile.");
+    // FINAL FALLBACK: If retries fail or time out, return a fail-safe profile to prevent blocking the app
+    console.warn("CRITICAL: Profile fetch failed or timed out. Using fail-safe profile.");
     return {
       id: userId,
       email: email || '',
@@ -152,8 +176,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (!isMounted) return;
-
-        setSession(initialSession);
+        
+        // Force refresh the session token before fetching profile
+        if (initialSession) {
+          const { data: refreshData } = await supabase.auth.refreshSession();
+          if (refreshData?.session) {
+            console.log("Session refreshed successfully");
+            setSession(refreshData.session);
+          } else {
+            console.log("Session refresh failed, signing out");
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+        } else {
+          setSession(initialSession);
+        }
 
         if (initialSession?.user && !profileFetchedRef.current) {
           console.log("Auth Boot: Session found, fetching profile...");

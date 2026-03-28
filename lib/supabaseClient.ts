@@ -56,8 +56,8 @@ const rawUrl = getEnvVar('VITE_SUPABASE_URL');
 const rawKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
 // Selection Logic: Prioritize environment variables, fallback to hardcoded defaults.
-const finalUrl = rawUrl && isValidUrl(rawUrl) ? rawUrl : 'https://qpdtmuichqimcpjgnbig.supabase.co';
-const finalKey = rawKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwZHRtdWljaHFpbWNwamduYmlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzE0NzYsImV4cCI6MjA4Njk0NzQ3Nn0.gTbfpmL9JO4BwyOMSnuwCl_JAH5CBKND53JKJFzlZYw';
+export const finalUrl = rawUrl && isValidUrl(rawUrl) ? rawUrl : 'https://qpdtmuichqimcpjgnbig.supabase.co';
+export const finalKey = rawKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwZHRtdWljaHFpbWNwamduYmlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzE0NzYsImV4cCI6MjA4Njk0NzQ3Nn0.gTbfpmL9JO4BwyOMSnuwCl_JAH5CBKND53JKJFzlZYw';
 
 /**
  * Detailed configuration status for diagnostics.
@@ -96,18 +96,30 @@ export const checkSupabaseHealth = async (): Promise<{ status: number | string; 
   
   const start = Date.now();
   try {
+    // Add a 5-second timeout to the health check fetch
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     // Ping the REST endpoint
     const response = await fetch(`${finalUrl}/rest/v1/`, {
       method: 'GET',
-      headers: { 'apikey': finalKey }
+      headers: { 'apikey': finalKey },
+      signal: controller.signal
     });
+    
+    clearTimeout(timeoutId);
+    
     return { 
       status: response.status, 
       ok: response.ok || response.status === 401, // 401 means reachable but maybe key issue
       latency: Date.now() - start 
     };
   } catch (error: any) {
-    return { status: error.message || 'FETCH_FAILED', ok: false, latency: Date.now() - start };
+    return { 
+      status: error.name === 'AbortError' ? 'TIMEOUT' : (error.message || 'FETCH_FAILED'), 
+      ok: false, 
+      latency: Date.now() - start 
+    };
   }
 };
 

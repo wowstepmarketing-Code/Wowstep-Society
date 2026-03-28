@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useClient } from '../context/ClientContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getMarketTrends, getGrowthForecast, getLocalMarketIntelligence } from '../lib/gemini';
+import { getMarketTrends, getGrowthForecast, getLocalMarketIntelligence, isGeminiEnabled } from '../lib/gemini';
 import { supabase } from '../lib/supabaseClient';
 import { useMemo } from 'react';
 
@@ -23,7 +23,7 @@ const LocationIntelligence: React.FC<{ brand: string; location: string; niche: s
 
   useEffect(() => {
     const fetchLocationData = async () => {
-      if (!location) return;
+      if (!location || !isGeminiEnabled) return;
       setLoading(true);
       const res = await getLocalMarketIntelligence(brand, location, niche);
       setData(res);
@@ -90,6 +90,10 @@ const NeuralTrendWatch: React.FC<{ niche: string; brand: string }> = ({ niche, b
 
   useEffect(() => {
     const fetchTrends = async () => {
+      if (!isGeminiEnabled) {
+        setLoading(false);
+        return;
+      }
       setLoading(true);
       const res = await getMarketTrends(niche || "Luxury Strategy", brand);
       setIntelligence(res);

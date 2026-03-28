@@ -5,7 +5,21 @@ import { GoogleGenAI, Type } from "@google/genai";
  * Creating a fresh instance inside each call ensures the most up-to-date 
  * API key from process.env.API_KEY is used (crucial for Veo/Imagen).
  */
-const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+export const isGeminiEnabled = !!process.env.API_KEY;
+
+const getAI = () => {
+  const key = process.env.API_KEY;
+  if (!key) {
+    console.warn("Gemini API key is not set. AI features will be disabled.");
+    return null;
+  }
+  try {
+    return new GoogleGenAI({ apiKey: key });
+  } catch (err) {
+    console.error("Failed to initialize GoogleGenAI:", err);
+    return null;
+  }
+};
 
 /**
  * Helper to identify permission-related errors from the Gemini API.
@@ -20,12 +34,14 @@ const isPermissionError = (error: any): boolean => {
     code === 403 || 
     status === "PERMISSION_DENIED" || 
     message.includes("permission") || 
-    message.includes("not have permission")
+    message.includes("not have permission") ||
+    message.includes("api key must be set")
   );
 };
 
 export const getStrategyAdvice = async (brandName: string, phase: string, userMessage: string) => {
   const ai = getAI();
+  if (!ai) return "Intelligence offline (Key missing).";
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -43,6 +59,7 @@ export const getStrategyAdvice = async (brandName: string, phase: string, userMe
 
 export const generateStrategicRoadmap = async (brandName: string, niche: string, phase: string) => {
   const ai = getAI();
+  if (!ai) return [];
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -76,6 +93,7 @@ export const generateStrategicRoadmap = async (brandName: string, niche: string,
 
 export const suggestNextObjective = async (brandName: string, phase: string) => {
   const ai = getAI();
+  if (!ai) return null;
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -102,6 +120,7 @@ export const suggestNextObjective = async (brandName: string, phase: string) => 
 
 export const getLocalMarketIntelligence = async (brandName: string, location: string, niche: string) => {
   const ai = getAI();
+  if (!ai) return { text: "Location intelligence offline (Key missing).", sources: [] };
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-lite-latest",
@@ -121,6 +140,7 @@ export const getLocalMarketIntelligence = async (brandName: string, location: st
 
 export const getMarketTrends = async (niche: string, brandName: string) => {
   const ai = getAI();
+  if (!ai) return { text: "Market intelligence stream interrupted (Key missing).", sources: [] };
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -140,6 +160,7 @@ export const getMarketTrends = async (niche: string, brandName: string) => {
 
 export const getGrowthForecast = async (brandName: string, metrics: string) => {
   const ai = getAI();
+  if (!ai) return "Intelligence recalibrating (Key missing).";
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-pro-preview",
@@ -154,6 +175,7 @@ export const getGrowthForecast = async (brandName: string, metrics: string) => {
 
 export const getAnalyticsInsight = async (brandName: string, metricsSummary: string) => {
   const ai = getAI();
+  if (!ai) return "Intelligence offline (Key missing).";
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -167,6 +189,7 @@ export const getAnalyticsInsight = async (brandName: string, metricsSummary: str
 
 export const getGlobalEcosystemBriefing = async (totalArr: string, clientCount: number, tiers: string) => {
   const ai = getAI();
+  if (!ai) return "Intelligence recalibrating (Key missing).";
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -180,6 +203,7 @@ export const getGlobalEcosystemBriefing = async (totalArr: string, clientCount: 
 
 export const generateLeadOutreach = async (brandName: string, leadName: string, company: string) => {
   const ai = getAI();
+  if (!ai) return "Outreach offline (Key missing).";
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -193,6 +217,7 @@ export const generateLeadOutreach = async (brandName: string, leadName: string, 
 
 export const generateCopywriting = async (brandName: string, target: string, context: string) => {
   const ai = getAI();
+  if (!ai) return "Neural copy engine offline (Key missing).";
   try {
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
@@ -209,6 +234,7 @@ export const generateCopywriting = async (brandName: string, target: string, con
  */
 export const generateBrandAsset = async (prompt: string, aspectRatio: "1:1" | "16:9" | "9:16" = "1:1") => {
   const ai = getAI();
+  if (!ai) return null;
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-3-pro-image-preview',
@@ -238,6 +264,7 @@ export const generateBrandAsset = async (prompt: string, aspectRatio: "1:1" | "1
  */
 export const generateBrandVideo = async (prompt: string) => {
   const ai = getAI();
+  if (!ai) return null;
   try {
     let operation = await ai.models.generateVideos({
       model: 'veo-3.1-fast-generate-preview',
