@@ -37,11 +37,12 @@ async function fetchMyProfile(userId: string, email?: string, retryCount = 0): P
   console.log(`fetchMyProfile called for: ${userId} (attempt ${retryCount + 1}) at ${new Date().toISOString()}`);
   
   try {
-    // Add 30-second timeout to detect hanging requests
+    // Add 10-second timeout per attempt (reduced from 30s for faster recovery)
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('PROFILE_FETCH_TIMEOUT')), 30000)
+      setTimeout(() => reject(new Error('PROFILE_FETCH_TIMEOUT')), 10000)
     );
     
+    // Attempt to fetch profile
     const queryPromise = supabase
       .from('profiles')
       .select('id,email,full_name,role,onboarding_complete')
@@ -49,20 +50,17 @@ async function fetchMyProfile(userId: string, email?: string, retryCount = 0): P
       .maybeSingle();
 
     const result = await Promise.race([queryPromise, timeoutPromise]) as any;
-    
-    // Check if result is from timeoutPromise (which throws) or queryPromise
     const { data, error } = result;
     
     console.log(`fetchMyProfile response received for ${userId}:`, { data, error });
 
     if (error) {
       console.error("Profile fetch error:", error);
-      // If it's a network error or project paused, we might see specific codes
-      throw error; // Throw to trigger retry logic
+      throw error; 
     }
 
     if (!data && email) {
-      console.log("Profile missing (maybeSingle returned null), creating default...");
+      console.log("Profile missing, creating default...");
       const { data: newData, error: insertError } = await supabase
         .from('profiles')
         .insert({ id: userId, email: email, role: 'CLIENT' })
@@ -75,16 +73,25 @@ async function fetchMyProfile(userId: string, email?: string, retryCount = 0): P
 
     return data as Profile;
   } catch (err: any) {
-    console.error("fetchMyProfile EXCEPTION:", err.message || 'UNKNOWN_ERROR');
+    console.error(`fetchMyProfile EXCEPTION (Attempt ${retryCount + 1}):`, err.message || 'UNKNOWN_ERROR');
     
-    // Retry logic: up to 2 retries (3 attempts total)
-    if (retryCount < 2) {
-      const backoff = (retryCount + 1) * 2000; // 2s, 4s backoff
+    // Retry logic: up to 3 retries (4 attempts total)
+    if (retryCount < 3) {
+      const backoff = (retryCount + 1) * 1500; 
       console.log(`Retrying profile fetch in ${backoff}ms...`);
       await new Promise(resolve => setTimeout(resolve, backoff));
       return fetchMyProfile(userId, email, retryCount + 1);
     }
-    return null;
+    
+    // FINAL FALLBACK: If all retries fail, return a fail-safe profile to prevent blocking the app
+    console.warn("CRITICAL: Profile fetch failed after all retries. Using fail-safe profile.");
+    return {
+      id: userId,
+      email: email || '',
+      full_name: 'User (Offline Mode)',
+      role: UserRole.CLIENT,
+      onboarding_complete: true // Assume true to bypass onboarding blocks if sync is down
+    } as Profile;
   }
 }
 

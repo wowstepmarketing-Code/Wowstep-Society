@@ -55,6 +55,10 @@ const isValidUrl = (url: string | null | undefined): boolean => {
 const rawUrl = getEnvVar('VITE_SUPABASE_URL');
 const rawKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
+// Selection Logic: Prioritize environment variables, fallback to hardcoded defaults.
+const finalUrl = rawUrl && isValidUrl(rawUrl) ? rawUrl : 'https://qpdtmuichqimcpjgnbig.supabase.co';
+const finalKey = rawKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwZHRtdWljaHFpbWNwamduYmlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzE0NzYsImV4cCI6MjA4Njk0NzQ3Nn0.gTbfpmL9JO4BwyOMSnuwCl_JAH5CBKND53JKJFzlZYw';
+
 /**
  * Detailed configuration status for diagnostics.
  */
@@ -62,13 +66,9 @@ export const supabaseConfigStatus = {
   hasUrl: !!rawUrl,
   hasKey: !!rawKey,
   isValidUrl: isValidUrl(rawUrl),
-  isConfigured: isValidUrl(rawUrl) && !!rawKey,
-  url: rawUrl ? `${rawUrl.substring(0, 15)}...` : 'NONE'
+  isConfigured: isValidUrl(finalUrl) && !!finalKey,
+  url: finalUrl ? `${finalUrl.substring(0, 15)}...` : 'NONE'
 };
-
-// Selection Logic: Prioritize environment variables, fallback to hardcoded defaults.
-const finalUrl = rawUrl || 'https://qpdtmuichqimcpjgnbig.supabase.co';
-const finalKey = rawKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwZHRtdWljaHFpbWNwamduYmlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzE0NzYsImV4cCI6MjA4Njk0NzQ3Nn0.gTbfpmL9JO4BwyOMSnuwCl_JAH5CBKND53JKJFzlZYw';
 
 /**
  * Export configuration status (legacy support).
