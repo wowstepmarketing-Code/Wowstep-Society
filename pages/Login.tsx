@@ -18,7 +18,6 @@ const Login: React.FC = () => {
   // Redirect only after auth state is fully ready
   React.useEffect(() => {
     if (!loading && user && profile) {
-      console.log("Login: Auth state ready, navigating to dashboard.");
       navigate('/dashboard');
     }
   }, [loading, user, profile, navigate]);
@@ -63,7 +62,6 @@ const Login: React.FC = () => {
 
       if (res.ok) {
         // Navigation is handled by the useEffect above to ensure profile is loaded
-        console.log("Login: Authentication successful, waiting for profile sync...");
       } else {
         setError(res.error ?? 'Authentication roadblock encountered. Verify credentials.');
         setBusy(false);

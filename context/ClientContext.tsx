@@ -84,7 +84,6 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [loading, setLoading] = useState(true);
 
   const refreshClients = async () => {
-    console.log("ClientContext: starting refresh");
     if (!session?.user || !profile) {
       setLoading(false);
       return;
@@ -220,7 +219,6 @@ export const ClientProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setUpgradeRequests([]);
       setRevenueHistory([]);
     } finally {
-      console.log("ClientContext: refresh done");
       setLoading(false);
     }
   };

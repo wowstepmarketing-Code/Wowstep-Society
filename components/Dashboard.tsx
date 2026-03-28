@@ -21,6 +21,8 @@ const LocationIntelligence: React.FC<{ brand: string; location: string; niche: s
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<{ text: string; sources: any[] } | null>(null);
 
+  // AI Intelligence disabled on page load per cleanup pass
+  /*
   useEffect(() => {
     const fetchLocationData = async () => {
       if (!location || !isGeminiEnabled) return;
@@ -31,6 +33,7 @@ const LocationIntelligence: React.FC<{ brand: string; location: string; niche: s
     };
     fetchLocationData();
   }, [location, brand, niche]);
+  */
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-sm relative overflow-hidden h-full">
@@ -85,9 +88,11 @@ const LocationIntelligence: React.FC<{ brand: string; location: string; niche: s
 };
 
 const NeuralTrendWatch: React.FC<{ niche: string; brand: string }> = ({ niche, brand }) => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [intelligence, setIntelligence] = useState<{ text: string, sources: any[] }>({ text: '', sources: [] });
 
+  // AI Intelligence disabled on page load per cleanup pass
+  /*
   useEffect(() => {
     const fetchTrends = async () => {
       if (!isGeminiEnabled) {
@@ -101,6 +106,7 @@ const NeuralTrendWatch: React.FC<{ niche: string; brand: string }> = ({ niche, b
     };
     fetchTrends();
   }, [niche, brand]);
+  */
 
   return (
     <div className="bg-white/5 border border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-sm relative overflow-hidden h-full shadow-xl">

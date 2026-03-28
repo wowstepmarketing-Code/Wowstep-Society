@@ -3,11 +3,6 @@ import React, { createContext, useContext, useEffect, useMemo, useState, useRef 
 import { supabase, isSupabaseConfigured, supabaseConfigStatus, checkSupabaseHealth, finalUrl, finalKey } from '../lib/supabaseClient';
 import { UserRole, Profile, User } from '../types';
 
-console.log("SUPABASE CONFIG:", {
-  url: supabaseConfigStatus,
-  configured: isSupabaseConfigured
-});
-
 type AuthContextValue = {
   user: User | null;
   session: any | null;
@@ -32,37 +27,16 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-async function fetchMyProfile(userId: string, email?: string, retryCount = 0): Promise<Profile | null> {
+async function fetchMyProfile(userId: string, email?: string): Promise<Profile | null> {
   if (!isSupabaseConfigured) return null;
-  console.log(`fetchMyProfile called for: ${userId} (attempt ${retryCount + 1}) at ${new Date().toISOString()}`);
-  
   try {
-    // Increase timeouts: 15s for first attempt, 30s for retry
-    const currentTimeout = retryCount === 0 ? 15000 : 30000;
-    
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('PROFILE_FETCH_TIMEOUT')), currentTimeout)
-    );
-    
-    // Attempt to fetch profile via Supabase client
-    const queryPromise = supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('id,email,full_name,role,onboarding_complete')
       .eq('id', userId)
       .maybeSingle();
 
-    const result = await Promise.race([queryPromise, timeoutPromise]) as any;
-    const { data, error } = result;
-    
-    console.log(`fetchMyProfile response received for ${userId}:`, { data, error });
-
-    if (error) {
-      console.error("Profile fetch error:", error);
-      throw error; 
-    }
-
-    if (!data && email) {
-      console.log("Profile missing, creating default...");
+    if (error && error.code === 'PGRST116' && email) {
       const { data: newData, error: insertError } = await supabase
         .from('profiles')
         .insert({ id: userId, email: email, role: 'CLIENT' })
@@ -70,52 +44,17 @@ async function fetchMyProfile(userId: string, email?: string, retryCount = 0): P
         .single();
       if (!insertError) return newData as Profile;
       console.error("Failed to auto-create profile:", insertError);
-      throw insertError;
+      return null;
     }
 
+    if (error) {
+      console.error("Profile fetch error:", error);
+      return null;
+    }
     return data as Profile;
-  } catch (err: any) {
-    console.error(`fetchMyProfile EXCEPTION (Attempt ${retryCount + 1}):`, err.message || 'UNKNOWN_ERROR');
-    
-    // If we hit a timeout or error, try a direct REST fetch as a last resort before retrying or falling back
-    if (err.message === 'PROFILE_FETCH_TIMEOUT' || err.message?.includes('fetch')) {
-       console.log("Attempting direct REST fetch fallback...");
-       try {
-         const restResponse = await fetch(`${finalUrl}/rest/v1/profiles?id=eq.${userId}&select=id,email,full_name,role,onboarding_complete`, {
-           headers: {
-             'apikey': finalKey,
-             'Authorization': `Bearer ${finalKey}`
-           }
-         });
-         if (restResponse.ok) {
-           const restData = await restResponse.json();
-           if (restData && restData.length > 0) {
-             console.log("Direct REST fetch successful!");
-             return restData[0] as Profile;
-           }
-         }
-       } catch (restErr) {
-         console.error("Direct REST fetch fallback failed:", restErr);
-       }
-    }
-
-    // Retry logic: up to 1 retry (2 attempts total)
-    if (retryCount < 1) {
-      const backoff = 2000; 
-      console.log(`Retrying profile fetch in ${backoff}ms...`);
-      await new Promise(resolve => setTimeout(resolve, backoff));
-      return fetchMyProfile(userId, email, retryCount + 1);
-    }
-    
-    // FINAL FALLBACK: If retries fail or time out, return a fail-safe profile to prevent blocking the app
-    console.warn("CRITICAL: Profile fetch failed or timed out. Using fail-safe profile.");
-    return {
-      id: userId,
-      email: email || '',
-      full_name: 'User (Offline Mode)',
-      role: UserRole.CLIENT,
-      onboarding_complete: true // Assume true to bypass onboarding blocks if sync is down
-    } as Profile;
+  } catch (err) {
+    console.error("Profile fetch failed:", err);
+    return null;
   }
 }
 
@@ -150,28 +89,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const initializeAuth = async () => {
       try {
-        console.log("Auth Boot: Initializing session check...");
-        
-        // Run health check in parallel with session check
-        const healthPromise = checkSupabaseHealth();
-        const sessionPromise = supabase.auth.getSession();
-        
-        const [health, { data: { session: initialSession }, error }] = await Promise.all([
-          healthPromise,
-          sessionPromise
-        ]);
-        
-        console.log("Auth Boot: Health Check Result:", health);
-        if (!health.ok) {
-          console.warn("Auth Boot: Supabase project might be paused or unreachable.", health);
-          if (health.status === 503 || health.status === 504) setProjectPaused(true);
-          else setNetworkError(true);
-        }
-
-        console.log("Auth Boot: getSession() resolved. Session exists:", !!initialSession);
+        // Run session check
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error("Auth Boot: getSession error", error);
           if (error.message.includes('fetch')) setNetworkError(true);
         }
 
@@ -181,10 +102,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (initialSession) {
           const { data: refreshData } = await supabase.auth.refreshSession();
           if (refreshData?.session) {
-            console.log("Session refreshed successfully");
             setSession(refreshData.session);
           } else {
-            console.log("Session refresh failed, signing out");
             await supabase.auth.signOut();
             setSession(null);
             setUser(null);
@@ -196,12 +115,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (initialSession?.user && !profileFetchedRef.current) {
-          console.log("Auth Boot: Session found, fetching profile...");
           setProfileError(false);
           
           // Pre-check: Don't fetch if we already know Supabase is down
           if (projectPaused || networkError) {
-            console.warn("Auth Boot: Skipping profile fetch due to project status.");
             setProfileError(true);
             setLoading(false);
             return;
@@ -213,7 +130,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!isMounted) return;
           
           if (!p) {
-            console.error("Auth Boot: Profile fetch failed or timed out.");
             setProfileError(true);
           }
 
@@ -224,15 +140,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             name: p?.full_name || '',
             role: p?.role || UserRole.CLIENT
           });
-        } else {
-          console.log("Auth Boot: No session found.");
         }
       } catch (err) {
         console.error("Auth Boot: Critical initialization failure", err);
       } finally {
         if (isMounted) {
           setLoading(false);
-          console.log("AUTH COMPLETE - loading set to false, profile:", profile);
         }
       }
     };
@@ -245,7 +158,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (profileFetchedRef.current && event === 'SIGNED_IN') return;
 
       if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        console.log(`Auth Event: ${event}`);
         setSession(newSession);
 
         if (newSession?.user) {
@@ -253,18 +165,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Pre-check: Don't fetch if we already know Supabase is down
           if (projectPaused || networkError) {
-            console.warn("Auth Event: Skipping profile fetch due to project status.");
             setProfileError(true);
             setLoading(false);
             return;
           }
 
           const p = await fetchMyProfile(newSession.user.id, newSession.user.email);
-          console.log("Auth Event: Profile fetched:", p);
           if (!isMounted) return;
           
           if (!p) {
-            console.error("Auth Event: Profile fetch failed or timed out.");
             setProfileError(true);
           }
 
@@ -283,7 +192,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
         }
         setLoading(false);
-        console.log("Auth Event: Loading complete. Onboarding complete:", profile?.onboarding_complete);
       }
     });
 

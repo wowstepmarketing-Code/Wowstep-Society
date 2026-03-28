@@ -31,22 +31,13 @@ const OnboardingGate: React.FC<{ children: React.ReactNode }> = ({ children }) =
   const isOnboardingRoute = location.pathname === '/onboarding';
   const incomplete = !profile.onboarding_complete;
 
-  console.log("OnboardingGate Decision:", { 
-    path: location.pathname, 
-    onboarding_complete: profile.onboarding_complete,
-    incomplete,
-    isOnboardingRoute
-  });
-
   // Force onboarding if incomplete
   if (incomplete && !isOnboardingRoute) {
-    console.log("OnboardingGate: Redirecting to /onboarding (incomplete)");
     return <Navigate to="/onboarding" replace />;
   }
 
   // Redirect to dashboard if onboarding is already complete but user is on the onboarding page
   if (!incomplete && isOnboardingRoute) {
-    console.log("OnboardingGate: Redirecting to /dashboard (already complete)");
     return <Navigate to="/dashboard" replace />;
   }
 
