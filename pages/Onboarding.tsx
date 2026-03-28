@@ -19,7 +19,6 @@ const Onboarding: React.FC = () => {
   const [companyName, setCompanyName] = useState('');
   const [niche, setNiche] = useState('');
   const [location, setLocation] = useState('');
-  const [goals, setGoals] = useState('');
 
   const seedMilestones = async (companyId: string) => {
     try {
@@ -90,7 +89,6 @@ const Onboarding: React.FC = () => {
           name: companyName.trim(),
           niche: niche.trim() || null,
           location: location.trim() || null,
-          goals: goals.trim() || null,
           phase: 'START'
         })
         .select('id')
@@ -213,16 +211,6 @@ const Onboarding: React.FC = () => {
                   placeholder="e.g. Manhattan, NY"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="text-[9px] font-bold uppercase tracking-[0.3em] text-gray-500 ml-1">Strategic Growth Goals</label>
-              <textarea
-                value={goals}
-                onChange={(e) => setGoals(e.target.value)}
-                className="mt-2 w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-white outline-none focus:border-brand-green/50 min-h-[120px] resize-none"
-                placeholder="What defines dominance for your brand in the next 90 days?"
-              />
             </div>
 
             <div className="flex gap-4">

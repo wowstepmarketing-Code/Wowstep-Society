@@ -46,7 +46,6 @@ export interface BrandEntity {
   name: string;
   niche: string | null;
   location: string | null;
-  goals: string | null;
   phase: GrowthPhase;
   progress: number;
   revenue: number;
