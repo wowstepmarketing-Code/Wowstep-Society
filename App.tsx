@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 import ProtectedRoute from './routes/ProtectedRoute';
 import OnboardingGate from './routes/OnboardingGate';
+import RoleRoute from './routes/RoleRoute';
 import Login from './pages/Login';
 import Onboarding from './pages/Onboarding';
 
@@ -19,8 +20,8 @@ import StrategyBoard from './components/StrategyBoard';
 import DocumentHub from './components/DocumentHub';
 import AdminDashboard from './components/AdminDashboard';
 import LiveVisionRoom from './components/LiveVisionRoom';
-import BrandStudio from './components/BrandStudio';
 import Campaigns from './components/Campaigns';
+import Profile from './components/Profile';
 
 const SidebarItem: React.FC<{ to: string; label: string; icon: React.ReactNode; active?: boolean }> = ({ to, label, icon, active }) => (
   <Link
@@ -41,10 +42,7 @@ const SidebarContent: React.FC<{
   profile: any; 
   signOut: () => void;
   onItemClick?: () => void;
-  clients: SocietyClient[];
-  selectedClientId: string;
-  setSelectedClientId: (id: string) => void;
-}> = ({ currentPath, profile, signOut, onItemClick, clients, selectedClientId, setSelectedClientId }) => (
+}> = ({ currentPath, profile, signOut, onItemClick }) => (
   <div className="flex flex-col h-full">
     <div className="mb-10 px-2">
       <div className="text-2xl font-heading font-bold tracking-tighter text-white flex items-center gap-2">
@@ -58,33 +56,12 @@ const SidebarContent: React.FC<{
       </div>
     </div>
 
-    {/* Mobile Company Selector */}
-    {clients.length > 1 && (
-      <div className="lg:hidden mb-6 px-2">
-        <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-2 ml-1">Active Entity</p>
-        <select
-          value={selectedClientId}
-          onChange={(e) => setSelectedClientId(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 text-white text-xs px-3 py-2.5 rounded-lg outline-none cursor-pointer hover:border-brand-green/40 transition-all"
-        >
-          {clients.map((c) => (
-            <option key={c.id} value={c.id} className="bg-brand-black text-white">
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
-    )}
-
     <nav className="flex-1 space-y-1 overflow-y-auto pr-2 custom-scrollbar">
       <div onClick={onItemClick}>
         <SidebarItem to="/dashboard" label="Command Center" icon={<ICONS.Dashboard />} active={currentPath === '/dashboard'} />
       </div>
       <div onClick={onItemClick}>
         <SidebarItem to="/vision" label="Vision Room" icon={<ICONS.Vision />} active={currentPath === '/vision'} />
-      </div>
-      <div onClick={onItemClick}>
-        <SidebarItem to="/studio" label="Brand Studio" icon={<ICONS.Studio />} active={currentPath === '/studio'} />
       </div>
       <div onClick={onItemClick}>
         <SidebarItem to="/campaigns" label="Media Deployment" icon={<ICONS.Campaigns />} active={currentPath === '/campaigns'} />
@@ -96,13 +73,13 @@ const SidebarContent: React.FC<{
         <SidebarItem to="/analytics" label="Analytics" icon={<ICONS.Analytics />} active={currentPath === '/analytics'} />
       </div>
 
-      {(profile?.role === UserRole.ADMIN || profile?.role === UserRole.TEAM) && (
+      {(profile?.role !== UserRole.CLIENT) && (
         <div onClick={onItemClick}>
           <SidebarItem to="/strategy" label="Strategy Board" icon={<ICONS.Strategy />} active={currentPath === '/strategy'} />
         </div>
       )}
 
-      {(profile?.role === UserRole.ADMIN || profile?.role === UserRole.TEAM) && (
+      {(profile?.role !== UserRole.CLIENT) && (
         <div onClick={onItemClick}>
           <SidebarItem to="/crm" label="CRM Pipeline" icon={<ICONS.CRM />} active={currentPath === '/crm'} />
         </div>
@@ -113,6 +90,9 @@ const SidebarContent: React.FC<{
       </div>
       <div onClick={onItemClick}>
         <SidebarItem to="/documents" label="Document Hub" icon={<ICONS.Documents />} active={currentPath === '/documents'} />
+      </div>
+      <div onClick={onItemClick}>
+        <SidebarItem to="/profile" label="Executive Profile" icon={<ICONS.Profile />} active={currentPath === '/profile'} />
       </div>
 
       {profile?.role === UserRole.ADMIN && (
@@ -148,19 +128,11 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
   const currentPath = location.pathname;
   const { clients, selectedClient, selectedClientId, setSelectedClientId } = useClient();
-  const { profile, signOut, networkError } = useAuth();
+  const { profile, signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="flex h-screen bg-brand-black font-sans overflow-hidden">
-      {/* NETWORK ERROR BANNER */}
-      {networkError && (
-        <div className="fixed top-0 left-0 right-0 bg-red-600 text-white text-[10px] font-bold uppercase tracking-[0.2em] py-2 px-4 z-[100] text-center flex items-center justify-center gap-3">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-          Connectivity Interrupted: Supabase project may be paused or unreachable.
-        </div>
-      )}
-
       {/* MOBILE OVERLAY */}
       {mobileOpen && (
         <button
@@ -172,14 +144,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
       {/* SIDEBAR (desktop) */}
       <aside className="hidden lg:flex w-64 border-r border-white/10 flex-col p-6 bg-brand-black z-20">
-        <SidebarContent 
-          currentPath={currentPath} 
-          profile={profile} 
-          signOut={signOut} 
-          clients={clients}
-          selectedClientId={selectedClientId}
-          setSelectedClientId={setSelectedClientId}
-        />
+        <SidebarContent currentPath={currentPath} profile={profile} signOut={signOut} />
       </aside>
 
       {/* SIDEBAR (mobile drawer) */}
@@ -205,9 +170,6 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           profile={profile} 
           signOut={signOut} 
           onItemClick={() => setMobileOpen(false)} 
-          clients={clients}
-          selectedClientId={selectedClientId}
-          setSelectedClientId={setSelectedClientId}
         />
       </aside>
 
@@ -225,11 +187,10 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               </svg>
             </button>
 
-            <div className="flex items-center gap-6">
-              <h2 className="text-base sm:text-lg font-heading font-semibold text-white">
+            <div className="flex items-center gap-2 sm:gap-6">
+              <h2 className="text-sm sm:text-lg font-heading font-semibold text-white truncate max-w-[100px] sm:max-w-none">
                 {currentPath === '/dashboard' && 'Command Center'}
                 {currentPath === '/vision' && 'Vision Room'}
-                {currentPath === '/studio' && 'Brand Studio'}
                 {currentPath === '/campaigns' && 'Media Deployment'}
                 {currentPath === '/roadmap' && 'Evolution Roadmap'}
                 {currentPath === '/analytics' && 'Executive Analytics'}
@@ -237,6 +198,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 {currentPath === '/messages' && 'Intelligence Hub'}
                 {currentPath === '/strategy' && 'Strategy Board'}
                 {currentPath === '/documents' && 'Document Hub'}
+                {currentPath === '/profile' && 'Executive Profile'}
                 {currentPath === '/admin' && 'Wowstep Admin Control'}
               </h2>
 
@@ -244,7 +206,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <select
                   value={selectedClientId}
                   onChange={(e) => setSelectedClientId(e.target.value)}
-                  className="hidden md:block bg-white/5 border border-white/10 text-white text-xs px-3 py-2 rounded-lg outline-none cursor-pointer hover:border-brand-green/40 transition-all"
+                  className="bg-white/5 border border-white/10 text-white text-[10px] sm:text-xs px-2 py-1.5 sm:px-3 sm:py-2 rounded-lg outline-none cursor-pointer hover:border-brand-green/40 transition-all max-w-[80px] sm:max-w-none"
                 >
                   {clients.map((c) => (
                     <option key={c.id} value={c.id} className="bg-brand-black text-white">
@@ -257,7 +219,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-brand-green/30 bg-brand-green/10">
+            <div className="flex items-center gap-2 px-2 py-1 sm:px-3 sm:py-1.5 rounded-full border border-brand-green/30 bg-brand-green/10">
               <span className="w-2 h-2 rounded-full bg-brand-green animate-pulse" />
               <span className="hidden sm:inline text-[10px] font-bold tracking-widest uppercase text-brand-green">
                 {selectedClient.phase} Phase
@@ -272,7 +234,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           </div>
         </header>
 
-        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto pb-24">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto pb-24 overflow-x-hidden">
           {children}
         </div>
       </main>
@@ -289,79 +251,103 @@ const App: React.FC = () => {
             <Route path="/login" element={<Login />} />
             
             <Route path="/onboarding" element={
-              <OnboardingGate>
-                <Onboarding />
-              </OnboardingGate>
+              <ProtectedRoute>
+                <OnboardingGate>
+                  <Onboarding />
+                </OnboardingGate>
+              </ProtectedRoute>
             } />
             
             <Route path="/dashboard" element={
-              <OnboardingGate>
-                <AppLayout><Dashboard /></AppLayout>
-              </OnboardingGate>
+              <ProtectedRoute>
+                <OnboardingGate>
+                  <AppLayout><Dashboard /></AppLayout>
+                </OnboardingGate>
+              </ProtectedRoute>
             } />
             
             <Route path="/vision" element={
-              <OnboardingGate>
-                <AppLayout><LiveVisionRoom /></AppLayout>
-              </OnboardingGate>
-            } />
-            
-            <Route path="/studio" element={
-              <OnboardingGate>
-                <AppLayout><BrandStudio /></AppLayout>
-              </OnboardingGate>
+              <ProtectedRoute>
+                <OnboardingGate>
+                  <AppLayout><LiveVisionRoom /></AppLayout>
+                </OnboardingGate>
+              </ProtectedRoute>
             } />
             
             <Route path="/campaigns" element={
-              <OnboardingGate>
-                <AppLayout><Campaigns /></AppLayout>
-              </OnboardingGate>
+              <ProtectedRoute>
+                <OnboardingGate>
+                  <AppLayout><Campaigns /></AppLayout>
+                </OnboardingGate>
+              </ProtectedRoute>
             } />
             
             <Route path="/roadmap" element={
-              <OnboardingGate>
-                <AppLayout><Roadmap /></AppLayout>
-              </OnboardingGate>
+              <ProtectedRoute>
+                <OnboardingGate>
+                  <AppLayout><Roadmap /></AppLayout>
+                </OnboardingGate>
+              </ProtectedRoute>
             } />
             
             <Route path="/analytics" element={
-              <OnboardingGate>
-                <AppLayout><Analytics /></AppLayout>
-              </OnboardingGate>
+              <ProtectedRoute>
+                <OnboardingGate>
+                  <AppLayout><Analytics /></AppLayout>
+                </OnboardingGate>
+              </ProtectedRoute>
             } />
             
             <Route path="/crm" element={
-              <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.TEAM]}>
+              <ProtectedRoute>
                 <OnboardingGate>
-                  <AppLayout><CRM /></AppLayout>
+                  <RoleRoute allow={[UserRole.ADMIN, UserRole.MANAGER, UserRole.SOCIAL_MEDIA, UserRole.TRAFFIC, UserRole.DESIGN]}>
+                    <AppLayout><CRM /></AppLayout>
+                  </RoleRoute>
                 </OnboardingGate>
               </ProtectedRoute>
             } />
             
             <Route path="/messages" element={
-              <OnboardingGate>
-                <AppLayout><Messaging /></AppLayout>
-              </OnboardingGate>
+              <ProtectedRoute>
+                <OnboardingGate>
+                  <AppLayout><Messaging /></AppLayout>
+                </OnboardingGate>
+              </ProtectedRoute>
             } />
             
             <Route path="/strategy" element={
-              <ProtectedRoute allowedRoles={[UserRole.ADMIN, UserRole.TEAM]}>
+              <ProtectedRoute>
                 <OnboardingGate>
-                  <AppLayout><StrategyBoard /></AppLayout>
+                  <RoleRoute allow={[UserRole.ADMIN, UserRole.MANAGER, UserRole.SOCIAL_MEDIA, UserRole.TRAFFIC, UserRole.DESIGN]}>
+                    <AppLayout><StrategyBoard /></AppLayout>
+                  </RoleRoute>
                 </OnboardingGate>
               </ProtectedRoute>
             } />
             
             <Route path="/documents" element={
-              <OnboardingGate>
-                <AppLayout><DocumentHub /></AppLayout>
-              </OnboardingGate>
+              <ProtectedRoute>
+                <OnboardingGate>
+                  <AppLayout><DocumentHub /></AppLayout>
+                </OnboardingGate>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <OnboardingGate>
+                  <AppLayout><Profile /></AppLayout>
+                </OnboardingGate>
+              </ProtectedRoute>
             } />
             
             <Route path="/admin" element={
-              <ProtectedRoute allowedRoles={[UserRole.ADMIN]}>
+              <ProtectedRoute>
                 <OnboardingGate>
-                  <AppLayout><AdminDashboard /></AppLayout>
+                  <RoleRoute allow={[UserRole.ADMIN]}>
+                    <AppLayout><AdminDashboard /></AppLayout>
+                  </RoleRoute>
                 </OnboardingGate>
               </ProtectedRoute>
             } />

@@ -1,9 +1,10 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { GrowthPhase } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { useClient } from '../context/ClientContext';
+import { getGlobalEcosystemBriefing } from '../lib/gemini';
 
 type CompanyRow = {
   id: string;
@@ -15,6 +16,7 @@ type CompanyRow = {
   lastActivity?: string;
   created_at?: string;
   owner?: string;
+  ownerId?: string;
 };
 
 type UpgradeRequestRow = {
@@ -36,8 +38,30 @@ const PHASES: GrowthPhase[] = [GrowthPhase.START, GrowthPhase.SCALE, GrowthPhase
 // Fix: Removed duplicate AdminCompanyRow declaration from bottom of file
 const AdminCompanyRow: React.FC<{ company: CompanyRow; onSaved: () => void }> = ({ company, onSaved }) => {
   const [busy, setBusy] = useState(false);
+  const [ownerName, setOwnerName] = useState(company.owner || 'Unassigned');
   const { setSelectedClientId } = useClient();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchOwner = async () => {
+      if (ownerName === 'Unassigned' && company.ownerId) {
+        try {
+          const { data: ownerProfile } = await supabase
+            .from('profiles')
+            .select('full_name')
+            .eq('id', company.ownerId)
+            .single();
+          
+          if (ownerProfile?.full_name) {
+            setOwnerName(ownerProfile.full_name);
+          }
+        } catch (err) {
+          console.error("Failed to fetch owner profile:", err);
+        }
+      }
+    };
+    fetchOwner();
+  }, [company.owner, company.ownerId]);
 
   const updatePhase = async (nextPhase: GrowthPhase) => {
     setBusy(true);
@@ -68,14 +92,14 @@ const AdminCompanyRow: React.FC<{ company: CompanyRow; onSaved: () => void }> = 
           {company.name}
         </div>
         <div className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1 flex items-center gap-3">
-          <span>Owner: {company.owner || 'Unassigned'}</span>
+          <span>Owner: {ownerName}</span>
           <div className="flex items-center gap-2">
-            <button onClick={() => viewCompany('/messages')} className="text-gray-600 hover:text-brand-green transition-colors">
+            <Link to={`/messages?company=${company.id}`} className="text-gray-600 hover:text-brand-green transition-colors">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-            </button>
-            <button onClick={() => viewCompany('/documents')} className="text-gray-600 hover:text-brand-green transition-colors">
+            </Link>
+            <Link to={`/documents?company=${company.id}`} className="text-gray-600 hover:text-brand-green transition-colors">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9l-2-2H5a2 2 0 00-2 2v8a2 2 0 00-2 2z" /></svg>
-            </button>
+            </Link>
           </div>
         </div>
       </td>
@@ -140,7 +164,7 @@ const AdminCompanyRow: React.FC<{ company: CompanyRow; onSaved: () => void }> = 
 };
 
 const AdminDashboard: React.FC = () => {
-  const { clients, upgradeRequests, refreshClients, loading } = useClient();
+  const { clients, upgradeRequests, refreshClients, approveUpgrade, denyUpgrade, loading } = useClient();
   const [decidingId, setDecidingId] = useState<string | null>(null);
   const [reqErr, setReqErr] = useState<string | null>(null);
 
@@ -164,9 +188,7 @@ const AdminDashboard: React.FC = () => {
   const approve = async (id: string) => {
     setDecidingId(id);
     try {
-      const { error } = await supabase.rpc('approve_upgrade', { p_request_id: id });
-      if (error) throw error;
-      await refreshClients();
+      await approveUpgrade(id);
     } catch (e: any) {
       setReqErr(e?.message || 'Failed to approve.');
     } finally {
@@ -177,9 +199,7 @@ const AdminDashboard: React.FC = () => {
   const deny = async (id: string) => {
     setDecidingId(id);
     try {
-      const { error } = await supabase.rpc('deny_upgrade', { p_request_id: id, p_note: 'Denied by admin.' });
-      if (error) throw error;
-      await refreshClients();
+      await denyUpgrade(id, 'Denied by admin.');
     } catch (e: any) {
       setReqErr(e?.message || 'Failed to deny.');
     } finally {
@@ -197,6 +217,8 @@ const AdminDashboard: React.FC = () => {
 
   const [briefing, setBriefing] = useState('');
   const [loadingBriefing, setLoadingBriefing] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [newCompany, setNewCompany] = useState({ name: '', niche: '', location: '', revenue: 0 });
 
   const generateBriefing = async () => {
     setLoadingBriefing(true);
@@ -206,34 +228,134 @@ const AdminDashboard: React.FC = () => {
     setLoadingBriefing(false);
   };
 
+  const handleAddCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCompany.name) return;
+    
+    try {
+      const { data, error } = await supabase.from('companies').insert({
+        name: newCompany.name,
+        niche: newCompany.niche,
+        location: newCompany.location,
+        revenue: newCompany.revenue,
+        phase: GrowthPhase.START,
+        status: 'Growth'
+      }).select().single();
+
+      if (error) throw error;
+
+      // Also create a membership for the current user as owner
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        await supabase.from('memberships').insert({
+          company_id: data.id,
+          user_id: userData.user.id,
+          role: 'owner'
+        });
+      }
+
+      setIsAdding(false);
+      setNewCompany({ name: '', niche: '', location: '', revenue: 0 });
+      await refreshClients();
+    } catch (err) {
+      console.error('Failed to add company:', err);
+    }
+  };
+
   return (
-    <div className="space-y-12 animate-in fade-in duration-700">
+    <div className="space-y-12 animate-in fade-in duration-700 relative">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-heading font-bold text-white tracking-tight">Admin Control</h1>
+          <h1 className="text-2xl sm:text-4xl font-heading font-bold text-white tracking-tight">Admin Control</h1>
           <p className="text-gray-400 mt-1">Sovereign portfolio visibility and entity evolution.</p>
         </div>
-        <div className="flex gap-3 w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <button 
+            onClick={() => setIsAdding(true)}
+            className="w-full sm:w-auto px-5 py-2.5 bg-brand-green text-white font-bold rounded-lg hover:bg-brand-darkGreen transition-all shadow-lg shadow-brand-green/20 flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            Add Company
+          </button>
           <button 
             onClick={generateBriefing}
             disabled={loadingBriefing}
-            className="px-5 py-2.5 bg-brand-green text-white font-bold rounded-lg hover:bg-brand-darkGreen transition-all shadow-lg shadow-brand-green/20 disabled:opacity-50 flex items-center gap-2"
+            className="w-full sm:w-auto px-5 py-2.5 bg-white/5 text-white font-bold rounded-lg border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
           >
             {loadingBriefing ? (
               <div className="w-3 h-3 border-2 border-white/20 border-t-white rounded-full animate-spin" />
             ) : (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
             )}
-            Society Briefing
-          </button>
-          <button
-            onClick={refreshClients}
-            className="px-5 py-2.5 bg-white/5 text-white font-bold rounded-lg border border-white/10 hover:bg-white/10 transition-colors"
-          >
-            Refresh Portfolio
+            Briefing
           </button>
         </div>
       </div>
+
+      {isAdding && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-brand-black border border-white/10 rounded-2xl p-8 max-w-md w-full shadow-2xl">
+            <h2 className="text-2xl font-heading font-bold text-white mb-6">Register New Entity</h2>
+            <form onSubmit={handleAddCompany} className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Company Name</label>
+                <input 
+                  type="text" 
+                  required
+                  value={newCompany.name}
+                  onChange={e => setNewCompany({...newCompany, name: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white outline-none focus:border-brand-green/50 transition-all"
+                  placeholder="e.g. Acme Corp"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Niche / Industry</label>
+                <input 
+                  type="text" 
+                  value={newCompany.niche}
+                  onChange={e => setNewCompany({...newCompany, niche: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white outline-none focus:border-brand-green/50 transition-all"
+                  placeholder="e.g. SaaS, E-commerce"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Location</label>
+                <input 
+                  type="text" 
+                  value={newCompany.location}
+                  onChange={e => setNewCompany({...newCompany, location: e.target.value})}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white outline-none focus:border-brand-green/50 transition-all"
+                  placeholder="e.g. New York, Remote"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-2">Starting MRR ($)</label>
+                <input 
+                  type="number" 
+                  value={newCompany.revenue}
+                  onChange={e => setNewCompany({...newCompany, revenue: Number(e.target.value)})}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white outline-none focus:border-brand-green/50 transition-all"
+                />
+              </div>
+              <div className="flex gap-4 pt-4">
+                <button 
+                  type="button"
+                  onClick={() => setIsAdding(false)}
+                  className="flex-1 px-6 py-3 bg-white/5 text-white font-bold rounded-xl border border-white/10 hover:bg-white/10 transition-all"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-1 px-6 py-3 bg-brand-green text-white font-bold rounded-xl hover:bg-brand-darkGreen transition-all"
+                >
+                  Register
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {briefing && (
         <div className="bg-gradient-to-br from-brand-green/20 to-black border border-brand-green/30 p-8 rounded-3xl relative overflow-hidden group animate-in zoom-in-95 duration-500">
@@ -252,29 +374,29 @@ const AdminDashboard: React.FC = () => {
       )}
 
       {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-brand-green/10 border border-brand-green/30 rounded-2xl p-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-brand-green/10 border border-brand-green/30 rounded-2xl p-4 sm:p-6">
           <p className="text-[10px] font-bold text-brand-green uppercase tracking-widest mb-1">Portfolio Revenue (MRR)</p>
-          <h3 className="text-3xl font-heading font-bold text-white">
+          <h3 className="text-2xl sm:text-3xl font-heading font-bold text-white">
             ${Math.round(totals.totalRevenue).toLocaleString()}
           </h3>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Start Phase</p>
-          <h3 className="text-3xl font-heading font-bold text-white">{totals.startCount}</h3>
+          <h3 className="text-2xl sm:text-3xl font-heading font-bold text-white">{totals.startCount}</h3>
         </div>
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+        <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6">
           <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Scale Phase</p>
-          <h3 className="text-3xl font-heading font-bold text-white">{totals.scaleCount}</h3>
+          <h3 className="text-2xl sm:text-3xl font-heading font-bold text-white">{totals.scaleCount}</h3>
         </div>
-        <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-2xl p-6">
+        <div className="bg-brand-gold/10 border border-brand-gold/30 rounded-2xl p-4 sm:p-6">
           <p className="text-[10px] font-bold text-brand-gold uppercase tracking-widest mb-1">Elite Phase</p>
-          <h3 className="text-3xl font-heading font-bold text-white">{totals.eliteCount}</h3>
+          <h3 className="text-2xl sm:text-3xl font-heading font-bold text-white">{totals.eliteCount}</h3>
         </div>
       </div>
 
       {/* Upgrade Requests UI Block */}
-      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 shadow-2xl">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6 shadow-2xl">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-heading font-bold text-white">Upgrade Requests</h3>
           <button
@@ -296,7 +418,7 @@ const AdminDashboard: React.FC = () => {
         ) : (
           <div className="space-y-3">
             {pendingRequests.map((r) => (
-              <div key={r.id} className="flex items-center justify-between gap-4 bg-black/30 border border-white/10 rounded-xl p-4 hover:border-brand-green/30 transition-all">
+              <div key={r.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-black/30 border border-white/10 rounded-xl p-4 hover:border-brand-green/30 transition-all">
                 <div className="min-w-0">
                   <p className="text-white font-bold text-sm truncate">{r.company_name}</p>
                   <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest mt-1">
@@ -305,18 +427,18 @@ const AdminDashboard: React.FC = () => {
                   {r.note && <p className="text-gray-400 text-xs mt-2 italic leading-relaxed">"{r.note}"</p>}
                 </div>
 
-                <div className="flex gap-2 shrink-0">
+                <div className="flex gap-2 shrink-0 w-full sm:w-auto">
                   <button
                     onClick={() => deny(r.id)}
                     disabled={decidingId === r.id}
-                    className="px-4 py-2 text-[10px] font-bold border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/10 uppercase tracking-widest disabled:opacity-50"
+                    className="flex-1 sm:flex-none px-4 py-2.5 text-[10px] font-bold border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/10 uppercase tracking-widest disabled:opacity-50"
                   >
                     {decidingId === r.id ? '...' : 'Deny'}
                   </button>
                   <button
                     onClick={() => approve(r.id)}
                     disabled={decidingId === r.id}
-                    className="px-4 py-2 text-[10px] font-bold bg-brand-green text-white rounded-lg hover:bg-brand-darkGreen uppercase tracking-widest shadow-lg shadow-brand-green/20 disabled:opacity-50"
+                    className="flex-1 sm:flex-none px-4 py-2.5 bg-brand-green text-white rounded-lg hover:bg-brand-darkGreen uppercase tracking-widest shadow-lg shadow-brand-green/20 disabled:opacity-50"
                   >
                     {decidingId === r.id ? 'Approving…' : 'Approve'}
                   </button>
@@ -340,7 +462,7 @@ const AdminDashboard: React.FC = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
+          <table className="w-full text-left text-sm min-w-[800px]">
             <thead className="text-[10px] uppercase tracking-[0.3em] text-gray-500 font-bold border-b border-white/5">
               <tr>
                 <th className="py-5">Entity</th>

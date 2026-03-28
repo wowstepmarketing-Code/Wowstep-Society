@@ -1,7 +1,10 @@
 export enum UserRole {
-  CLIENT = 'CLIENT',
-  TEAM = 'TEAM',
-  ADMIN = 'ADMIN'
+  ADMIN = 'ADMIN',
+  MANAGER = 'MANAGER',
+  SOCIAL_MEDIA = 'SOCIAL_MEDIA',
+  TRAFFIC = 'TRAFFIC',
+  DESIGN = 'DESIGN',
+  CLIENT = 'CLIENT'
 }
 
 export enum GrowthPhase {
@@ -46,6 +49,7 @@ export interface BrandEntity {
   goals: string | null;
   phase: GrowthPhase;
   progress: number;
+  revenue: number;
   created_at: string;
 }
 
@@ -65,6 +69,17 @@ export interface Campaign {
   impressions?: number;
 }
 
+export interface Document {
+  id: string;
+  company_id: string;
+  name: string;
+  type: string;
+  size: string;
+  category: string;
+  url: string;
+  created_at: string;
+}
+
 export type MilestoneStatus = "completed" | "in-progress" | "locked";
 
 export interface Milestone {
@@ -82,10 +97,12 @@ export interface Milestone {
 
 export interface CRMLead {
   id: string;
+  company_id: string;
   name: string;
   company: string;
   value: number;
   stage: 'new' | 'contacted' | 'qualified' | 'proposal' | 'closed' | 'lost';
+  created_at: string;
 }
 
 export interface Message {
@@ -95,4 +112,20 @@ export interface Message {
   content: string;
   timestamp: Date;
   channel: string;
+}
+
+export interface UpgradeRequest {
+  id: string;
+  company_id: string;
+  requested_by: string;
+  current_phase: GrowthPhase;
+  requested_phase: GrowthPhase;
+  status: 'pending' | 'approved' | 'denied';
+  reason?: string;
+  created_at: string;
+}
+
+export interface RevenueData {
+  month: string;
+  revenue: number;
 }

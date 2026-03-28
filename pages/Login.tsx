@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 const Login: React.FC = () => {
-  const { signIn, signUp, isConfigured, networkError } = useAuth();
+  const { signIn, signUp, user, profile, loading, profileError, isConfigured, configStatus, networkError, projectPaused, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -15,12 +15,41 @@ const Login: React.FC = () => {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Redirect only after auth state is fully ready
+  React.useEffect(() => {
+    if (!loading && user && profile) {
+      console.log("Login: Auth state ready, navigating to dashboard.");
+      navigate('/dashboard');
+    }
+  }, [loading, user, profile, navigate]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     
-    if (!isConfigured || networkError) {
-      setError('Connectivity Interrupted: Supabase project may be paused or unreachable.');
+    if (!isConfigured) {
+      if (!configStatus.hasUrl || !configStatus.hasKey) {
+        setError('Configuration Missing: Supabase URL or Anon Key is not defined.');
+      } else if (!configStatus.isValidUrl) {
+        setError('Configuration Error: The provided Supabase URL is invalid.');
+      } else {
+        setError('Configuration Error: Supabase setup is incomplete.');
+      }
+      return;
+    }
+
+    if (networkError) {
+      setError('Network Failure: Unable to reach Supabase. Check your connection or project status.');
+      return;
+    }
+
+    if (projectPaused) {
+      setError('Project Unavailable: The Supabase project may be paused or undergoing maintenance.');
+      return;
+    }
+
+    if (mode === 'signup' && password.length < 6) {
+      setError('Security requirement: Password must be at least 6 characters long.');
       return;
     }
 
@@ -33,8 +62,8 @@ const Login: React.FC = () => {
           : await signUp(email.trim(), password, fullName.trim());
 
       if (res.ok) {
-        const origin = (location.state as any)?.from?.pathname || '/dashboard';
-        navigate(origin);
+        // Navigation is handled by the useEffect above to ensure profile is loaded
+        console.log("Login: Authentication successful, waiting for profile sync...");
       } else {
         setError(res.error ?? 'Authentication roadblock encountered. Verify credentials.');
         setBusy(false);
@@ -121,9 +150,46 @@ const Login: React.FC = () => {
             />
           </div>
 
+          {profileError && (
+            <div className="text-[10px] font-bold uppercase tracking-widest text-amber-500 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-center animate-in shake-1">
+              Profile Sync Error: The system is having trouble retrieving your profile data.
+              <div className="mt-2 pt-2 border-t border-amber-500/20">
+                <button 
+                  type="button"
+                  onClick={() => refreshProfile()}
+                  className="text-brand-green hover:underline"
+                >
+                  Retry Profile Sync
+                </button>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="text-[10px] font-bold uppercase tracking-widest text-red-500 bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-center animate-in shake-1">
               {error}
+              {mode === 'signin' && error.includes('Invalid credentials') && (
+                <div className="mt-2 pt-2 border-t border-red-500/20">
+                  <button 
+                    type="button"
+                    onClick={() => setMode('signup')}
+                    className="text-brand-green hover:underline"
+                  >
+                    Don't have an account? Request access here.
+                  </button>
+                </div>
+              )}
+              {mode === 'signup' && error.includes('already registered') && (
+                <div className="mt-2 pt-2 border-t border-red-500/20">
+                  <button 
+                    type="button"
+                    onClick={() => setMode('signin')}
+                    className="text-brand-green hover:underline"
+                  >
+                    Already have an account? Log in here.
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

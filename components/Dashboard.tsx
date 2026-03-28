@@ -7,10 +7,10 @@ import { supabase } from '../lib/supabaseClient';
 import { useMemo } from 'react';
 
 const StatCard: React.FC<{ title: string; value: string; sub: string; trend?: string }> = ({ title, value, sub, trend }) => (
-  <div className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:border-brand-green/50 transition-all duration-500 group hover:shadow-2xl hover:shadow-brand-green/5">
+  <div className="bg-white/5 border border-white/10 rounded-2xl p-4 sm:p-6 hover:border-brand-green/50 transition-all duration-500 group hover:shadow-2xl hover:shadow-brand-green/5">
     <p className="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-3 group-hover:text-brand-green transition-colors">{title}</p>
     <div className="flex items-end gap-3">
-      <h3 className="text-4xl font-heading font-bold text-white tracking-tighter tabular-nums">{value}</h3>
+      <h3 className="text-3xl sm:text-4xl font-heading font-bold text-white tracking-tighter tabular-nums">{value}</h3>
       {trend && <span className="text-brand-green text-sm font-bold pb-1 bg-brand-green/10 px-2 rounded mb-1">{trend}</span>}
     </div>
     <p className="text-[11px] text-gray-500 mt-2 font-medium tracking-wide">{sub}</p>
@@ -33,7 +33,7 @@ const LocationIntelligence: React.FC<{ brand: string; location: string; niche: s
   }, [location, brand, niche]);
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-sm relative overflow-hidden h-full">
+    <div className="bg-white/5 border border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-sm relative overflow-hidden h-full">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-brand-green/20 flex items-center justify-center border border-brand-green/30">
@@ -99,7 +99,7 @@ const NeuralTrendWatch: React.FC<{ niche: string; brand: string }> = ({ niche, b
   }, [niche, brand]);
 
   return (
-    <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-sm relative overflow-hidden h-full shadow-xl">
+    <div className="bg-white/5 border border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-sm relative overflow-hidden h-full shadow-xl">
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-brand-gold/20 flex items-center justify-center border border-brand-gold/30">
@@ -163,7 +163,7 @@ const StrategicForecast: React.FC<{ brand: string, mrr: number }> = ({ brand, mr
   };
 
   return (
-    <div className="bg-gradient-to-br from-brand-green/20 via-black to-black border border-brand-green/30 rounded-3xl p-8 relative overflow-hidden h-full shadow-xl">
+    <div className="bg-gradient-to-br from-brand-green/20 via-black to-black border border-brand-green/30 rounded-3xl p-6 sm:p-8 relative overflow-hidden h-full shadow-xl">
       <div className="flex items-center justify-between mb-8">
         <h3 className="text-xl font-heading font-bold text-white tracking-tight">Executive Forecasting</h3>
         <button 
@@ -191,7 +191,7 @@ const StrategicForecast: React.FC<{ brand: string, mrr: number }> = ({ brand, mr
 };
 
 const Dashboard: React.FC = () => {
-  const { selectedClient, milestones, leads, upgradeRequests, revenueHistory, getClientMilestones, refreshClients } = useClient();
+  const { selectedClient, milestones, leads, upgradeRequests, revenueHistory, getClientMilestones, refreshClients, requestUpgrade: contextRequestUpgrade } = useClient();
   const clientMilestones = getClientMilestones(selectedClient.id);
   const clientLeads = leads.filter(l => (l as any).company_id === selectedClient.id);
   const qualifiedLeads = clientLeads.filter(l => ['qualified', 'proposal', 'closed'].includes(l.stage)).length;
@@ -227,13 +227,8 @@ const Dashboard: React.FC = () => {
     setReqBusy(true);
     setReqMsg(null);
     try {
-      const { error } = await supabase.rpc('request_upgrade', {
-        p_company_id: selectedClient.id,
-        p_note: `Progress: ${progress}%. Requesting next phase.`
-      });
-      if (error) throw error;
+      await contextRequestUpgrade(`Progress: ${progress}%. Requesting next phase.`);
       setReqMsg('Upgrade request sent to Wowstep Leadership.');
-      await refreshClients();
     } catch (e: any) {
       setReqMsg(e?.message || 'Could not send upgrade request.');
     } finally {
@@ -249,30 +244,30 @@ const Dashboard: React.FC = () => {
   return (
     <div className="space-y-10 animate-in fade-in slide-in-from-bottom-6 duration-1000">
       {/* Executive Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 pb-6 border-b border-white/5">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-8 pb-6 border-b border-white/5">
         <div>
           <div className="flex items-center gap-4 mb-3">
              <span className="text-[11px] font-bold text-brand-green uppercase tracking-[0.4em] bg-brand-green/10 px-4 py-1.5 rounded-full border border-brand-green/20">Executive Command</span>
              <div className="w-1.5 h-1.5 rounded-full bg-brand-green animate-pulse" />
              <span className="text-[11px] font-bold text-gray-600 uppercase tracking-widest">{time} EST</span>
           </div>
-          <h1 className="text-4xl sm:text-6xl font-heading font-bold text-white tracking-tighter leading-none">Command Center.</h1>
-          <p className="text-gray-500 mt-4 text-lg sm:text-xl font-medium">
+          <h1 className="text-3xl sm:text-6xl font-heading font-bold text-white tracking-tighter leading-none">Command Center.</h1>
+          <p className="text-gray-500 mt-4 text-base sm:text-xl font-medium">
             Strategic ecosystem for <span className="text-white font-bold">{selectedClient.name}</span> currently optimizing in <span className="text-brand-green font-bold uppercase tracking-widest">{selectedClient.phase}</span>.
           </p>
         </div>
-        <div className="flex gap-4">
-          <button className="px-8 py-4 bg-brand-green text-white font-bold rounded-2xl hover:bg-brand-darkGreen transition-all shadow-2xl shadow-brand-green/20 active:scale-95 text-xs uppercase tracking-widest">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <button className="px-8 py-4 bg-brand-green text-white font-bold rounded-2xl hover:bg-brand-darkGreen transition-all shadow-2xl shadow-brand-green/20 active:scale-95 text-xs uppercase tracking-widest w-full sm:w-auto">
             Audit Strategy
           </button>
-          <button className="px-8 py-4 bg-white/5 text-white font-bold rounded-2xl border border-white/10 hover:bg-white/10 transition-colors active:scale-95 text-xs uppercase tracking-widest">
+          <button className="px-8 py-4 bg-white/5 text-white font-bold rounded-2xl border border-white/10 hover:bg-white/10 transition-colors active:scale-95 text-xs uppercase tracking-widest w-full sm:w-auto">
             Evolution Board
           </button>
         </div>
       </div>
 
       {/* Progress Overview */}
-      <div className="relative p-6 sm:p-12 rounded-[2rem] sm:rounded-[3.5rem] bg-gradient-to-br from-brand-green/20 via-black to-brand-black border border-white/10 overflow-hidden group shadow-2xl">
+      <div className="relative p-5 sm:p-10 rounded-[2rem] sm:rounded-[3.5rem] bg-gradient-to-br from-brand-green/20 via-black to-brand-black border border-white/10 overflow-hidden group shadow-2xl">
         <div className="absolute top-0 right-0 p-6 sm:p-12 opacity-5 group-hover:opacity-10 transition-opacity duration-1000 group-hover:rotate-12 transform">
            <svg className="w-32 h-32 sm:w-64 sm:h-64 text-brand-green" fill="currentColor" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
         </div>
@@ -314,7 +309,7 @@ const Dashboard: React.FC = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mt-10">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 mt-10">
              <div>
                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-widest mb-1">Active Phase</p>
                <p className="text-white font-bold text-sm uppercase">{selectedClient.phase}</p>
@@ -336,7 +331,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Primary Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
         <StatCard 
           title="Consolidated MRR" 
           value={`$${(selectedClient.mrr / 1000).toFixed(0)}k`} 
@@ -358,7 +353,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Intelligence Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
         <NeuralTrendWatch niche={(selectedClient as any).niche} brand={selectedClient.name} />
         <LocationIntelligence brand={selectedClient.name} location={(selectedClient as any).location} niche={(selectedClient as any).niche} />
         <StrategicForecast brand={selectedClient.name} mrr={selectedClient.mrr} />
@@ -367,7 +362,7 @@ const Dashboard: React.FC = () => {
       {/* Revenue Visualization */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
         <div className="lg:col-span-2 bg-white/5 border border-white/10 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 backdrop-blur-md shadow-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-12">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 mb-12">
             <div>
               <h3 className="text-xl sm:text-2xl font-heading font-bold tracking-tight text-white">Revenue Trajectory</h3>
               <p className="text-gray-500 text-xs sm:text-sm font-medium mt-1">Sovereign financial overview of growth cycles.</p>
@@ -376,7 +371,7 @@ const Dashboard: React.FC = () => {
               <span className="text-[10px] px-4 py-2 bg-brand-green/20 border border-brand-green/30 rounded-xl font-bold text-brand-green uppercase tracking-widest">Quarterly View</span>
             </div>
           </div>
-          <div className="h-[400px] w-full">
+          <div className="h-[300px] sm:h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={clientRevenue}>
                 <defs>

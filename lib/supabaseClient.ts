@@ -51,34 +51,74 @@ const isValidUrl = (url: string | null | undefined): boolean => {
   }
 };
 
-/**
- * Hardcoded WowSociety project credentials.
- * These ensure the application is functional "out of the box".
- */
-const FALLBACK_URL = 'https://qpdtmuichqimcpjgnbig.supabase.co';
-const FALLBACK_KEY = 'sb_publishable_SVXiTloJosX3Y-_DfXhyDQ_42k0hnS1';
-
 // Extraction
 const rawUrl = getEnvVar('VITE_SUPABASE_URL');
 const rawKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
-// Selection Logic: Use env var if valid, otherwise fallback.
-const finalUrl = isValidUrl(rawUrl) ? rawUrl : FALLBACK_URL;
-const finalKey = rawKey ? rawKey : FALLBACK_KEY;
+/**
+ * Detailed configuration status for diagnostics.
+ */
+export const supabaseConfigStatus = {
+  hasUrl: !!rawUrl,
+  hasKey: !!rawKey,
+  isValidUrl: isValidUrl(rawUrl),
+  isConfigured: isValidUrl(rawUrl) && !!rawKey,
+  url: rawUrl ? `${rawUrl.substring(0, 15)}...` : 'NONE'
+};
+
+// Selection Logic: Prioritize environment variables, fallback to hardcoded defaults.
+const finalUrl = rawUrl || 'https://qpdtmuichqimcpjgnbig.supabase.co';
+const finalKey = rawKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFwZHRtdWljaHFpbWNwamduYmlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEzNzE0NzYsImV4cCI6MjA4Njk0NzQ3Nn0.gTbfpmL9JO4BwyOMSnuwCl_JAH5CBKND53JKJFzlZYw';
 
 /**
- * Export configuration status. 
- * Since we have valid fallbacks, the app is considered configured.
+ * Export configuration status (legacy support).
  */
-export const isSupabaseConfigured = isValidUrl(finalUrl) && !!finalKey;
+export const isSupabaseConfigured = supabaseConfigStatus.isConfigured;
+
+if (!supabaseConfigStatus.isConfigured) {
+  console.group('Supabase Configuration Diagnostic');
+  console.warn('Status:', supabaseConfigStatus.isConfigured ? 'Valid' : 'Invalid');
+  console.warn('URL Present:', supabaseConfigStatus.hasUrl);
+  console.warn('URL Valid:', supabaseConfigStatus.isValidUrl);
+  console.warn('Key Present:', supabaseConfigStatus.hasKey);
+  if (!supabaseConfigStatus.hasUrl || !supabaseConfigStatus.hasKey) {
+    console.info('Tip: Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env file.');
+  }
+  console.groupEnd();
+}
+
+/**
+ * Performs a basic health check on the Supabase project.
+ * Useful for diagnosing "Paused" projects or network blocks.
+ */
+export const checkSupabaseHealth = async (): Promise<{ status: number | string; ok: boolean; latency?: number }> => {
+  if (!supabaseConfigStatus.isConfigured) return { status: 'NOT_CONFIGURED', ok: false };
+  
+  const start = Date.now();
+  try {
+    // Ping the REST endpoint
+    const response = await fetch(`${finalUrl}/rest/v1/`, {
+      method: 'GET',
+      headers: { 'apikey': finalKey }
+    });
+    return { 
+      status: response.status, 
+      ok: response.ok || response.status === 401, // 401 means reachable but maybe key issue
+      latency: Date.now() - start 
+    };
+  } catch (error: any) {
+    return { status: error.message || 'FETCH_FAILED', ok: false, latency: Date.now() - start };
+  }
+};
 
 /**
  * Initialize the Supabase client for the WowSociety ecosystem.
  */
-export const supabase = createClient(finalUrl, finalKey, {
+export const supabase = createClient(finalUrl || 'https://placeholder.supabase.co', finalKey || 'placeholder', {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    lock: null,
   }
 });

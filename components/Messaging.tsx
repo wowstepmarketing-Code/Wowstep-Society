@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useClient } from '../context/ClientContext';
 import { getStrategyAdvice } from '../lib/gemini';
@@ -25,6 +26,7 @@ const ChannelItem: React.FC<{ label: string; active?: boolean; locked?: boolean;
 const Messaging: React.FC = () => {
   const { user, profile } = useAuth();
   const { selectedClient, clients, setSelectedClientId } = useClient();
+  const [searchParams] = useSearchParams();
   const [mode, setMode] = useState<ChatMode>('AI');
   const [msgInput, setMsgInput] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
@@ -44,6 +46,13 @@ const Messaging: React.FC = () => {
 
   // Team Chat State
   const [teamMessages, setTeamMessages] = useState<Msg[]>([]);
+
+  useEffect(() => {
+    const companyId = searchParams.get('company');
+    if (companyId && companyId !== selectedClient.id) {
+      setSelectedClientId(companyId);
+    }
+  }, [searchParams, selectedClient.id, setSelectedClientId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -132,9 +141,9 @@ const Messaging: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-12rem)] flex bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+    <div className="h-[calc(100vh-14rem)] sm:h-[calc(100vh-12rem)] flex bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
       {/* Sidebar: Strategic & Operational Channels */}
-      <div className="w-72 border-r border-white/10 p-6 space-y-8 bg-black/40 backdrop-blur-sm hidden md:flex flex-col">
+      <div className="w-72 border-r border-white/10 p-4 sm:p-6 space-y-8 bg-black/40 backdrop-blur-sm hidden md:flex flex-col">
         <div>
           <h3 className="text-[10px] font-bold tracking-[0.2em] text-gray-500 uppercase mb-4">Strategic Intelligence</h3>
           <div className="space-y-1">
@@ -186,7 +195,7 @@ const Messaging: React.FC = () => {
 
       {/* Main Communication Interface */}
       <div className="flex-1 flex flex-col bg-black/20">
-        <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02] backdrop-blur-md">
+        <div className="p-3 sm:p-4 border-b border-white/10 flex items-center justify-between bg-white/[0.02] backdrop-blur-md">
           <div className="flex items-center gap-3">
             <div className={`w-2 h-2 rounded-full ${mode === 'AI' ? 'bg-brand-green animate-pulse shadow-[0_0_10px_rgba(6,78,59,0.5)]' : 'bg-brand-gold shadow-[0_0_10px_rgba(212,175,55,0.5)]'}`} />
             <div>
@@ -204,23 +213,23 @@ const Messaging: React.FC = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 scroll-smooth custom-scrollbar" ref={scrollRef}>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scroll-smooth custom-scrollbar" ref={scrollRef}>
           {mode === 'AI' ? (
             aiChat.map((m) => (
-              <div key={m.id} className={`flex gap-4 group animate-in slide-in-from-bottom-2 duration-300 ${m.sender === 'Society AI' ? 'justify-start' : 'flex-row-reverse'}`}>
-                <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center font-bold text-white border transition-all shadow-sm ${
+              <div key={m.id} className={`flex gap-3 sm:gap-4 group animate-in slide-in-from-bottom-2 duration-300 ${m.sender === 'Society AI' ? 'justify-start' : 'flex-row-reverse'}`}>
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex-shrink-0 flex items-center justify-center font-bold text-white border transition-all shadow-sm ${
                   m.sender === 'Society AI' 
                     ? 'bg-brand-green/20 border-brand-green/30 text-brand-green' 
                     : 'bg-white/5 border-white/10 text-white'
                 }`}>
                   {m.sender.charAt(0)}
                 </div>
-                <div className={`flex-1 max-w-xl ${m.sender === 'Society AI' ? '' : 'text-right'}`}>
+                <div className={`flex-1 max-w-[90%] sm:max-w-xl ${m.sender === 'Society AI' ? '' : 'text-right'}`}>
                   <div className={`flex items-baseline gap-2 mb-1 ${m.sender === 'Society AI' ? '' : 'flex-row-reverse'}`}>
-                    <span className="font-bold text-white text-sm">{m.sender}</span>
+                    <span className="font-bold text-white text-xs sm:text-sm">{m.sender}</span>
                     <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">{m.time}</span>
                   </div>
-                  <div className={`text-sm text-gray-300 leading-relaxed bg-white/5 px-5 py-3 rounded-2xl border border-white/5 shadow-inner ${
+                  <div className={`text-xs sm:text-sm text-gray-300 leading-relaxed bg-white/5 px-4 sm:px-5 py-2 sm:py-3 rounded-2xl border border-white/5 shadow-inner ${
                     m.sender === 'Society AI' ? 'rounded-tl-none border-l-brand-green/50' : 'rounded-tr-none border-r-brand-green/50'
                   }`}>
                     {m.content}
@@ -232,20 +241,20 @@ const Messaging: React.FC = () => {
             teamMessages.length > 0 ? teamMessages.map((m) => {
               const isMine = m.sender_id === user?.id;
               return (
-                <div key={m.id} className={`flex gap-4 group animate-in slide-in-from-bottom-2 duration-300 ${isMine ? 'flex-row-reverse' : 'justify-start'}`}>
-                  <div className={`w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center font-bold text-white border transition-all shadow-sm ${
+                <div key={m.id} className={`flex gap-3 sm:gap-4 group animate-in slide-in-from-bottom-2 duration-300 ${isMine ? 'flex-row-reverse' : 'justify-start'}`}>
+                  <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex-shrink-0 flex items-center justify-center font-bold text-white border transition-all shadow-sm ${
                     isMine ? 'bg-brand-green/10 border-brand-green/30 text-white' : 'bg-white/5 border-white/10 text-gray-400'
                   }`}>
                     {m.sender_name?.charAt(0) || 'U'}
                   </div>
-                  <div className={`flex-1 max-w-xl ${isMine ? 'text-right' : ''}`}>
+                  <div className={`flex-1 max-w-[90%] sm:max-w-xl ${isMine ? 'text-right' : ''}`}>
                     <div className={`flex items-baseline gap-2 mb-1 ${isMine ? 'flex-row-reverse' : ''}`}>
-                      <span className="font-bold text-white text-sm">{m.sender_name}</span>
+                      <span className="font-bold text-white text-xs sm:text-sm">{m.sender_name}</span>
                       <span className="text-[9px] font-bold text-gray-600 uppercase tracking-widest">
                         {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <div className={`text-sm text-gray-300 leading-relaxed px-5 py-3 rounded-2xl border border-white/5 shadow-inner ${
+                    <div className={`text-xs sm:text-sm text-gray-300 leading-relaxed px-4 sm:px-5 py-2 sm:py-3 rounded-2xl border border-white/5 shadow-inner ${
                       isMine ? 'bg-brand-green/5 rounded-tr-none border-r-brand-green/30' : 'bg-white/[0.02] rounded-tl-none border-l-white/20'
                     }`}>
                       {m.body}
@@ -272,7 +281,7 @@ const Messaging: React.FC = () => {
           )}
         </div>
 
-        <div className="p-6 bg-black/40 border-t border-white/5">
+        <div className="p-4 sm:p-6 bg-black/40 border-t border-white/5">
           <div className="relative flex items-center">
             <input 
               type="text"
@@ -281,12 +290,12 @@ const Messaging: React.FC = () => {
               onChange={(e) => setMsgInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
               placeholder={mode === 'AI' ? "Request strategic alignment..." : "Message team / client..."}
-              className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:border-brand-green transition-all placeholder:text-gray-600 pr-32 shadow-xl disabled:opacity-50"
+              className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-sm text-white focus:outline-none focus:border-brand-green transition-all placeholder:text-gray-600 pr-12 sm:pr-32 shadow-xl disabled:opacity-50"
             />
-            <div className="absolute right-4 flex items-center gap-4 text-gray-500">
+            <div className="absolute right-2 sm:right-4 flex items-center gap-2 sm:gap-4 text-gray-500">
                <button className="hover:text-brand-green transition-colors hidden sm:block"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg></button>
                <button onClick={send} disabled={aiLoading || teamLoading || !msgInput.trim()} className="p-2 bg-brand-green rounded-xl text-white hover:bg-brand-darkGreen transition-all shadow-lg shadow-brand-green/20 disabled:opacity-50">
-                  {(aiLoading || teamLoading) ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>}
+                  {(aiLoading || teamLoading) ? <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>}
                </button>
             </div>
           </div>

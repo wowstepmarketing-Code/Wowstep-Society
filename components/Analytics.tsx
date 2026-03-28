@@ -1,63 +1,70 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { useClient } from '../context/ClientContext';
 import { getAnalyticsInsight } from '../lib/gemini';
-import { useMemo } from 'react';
+import { supabase } from '../lib/supabaseClient';
+import { Campaign } from '../types';
 
 const Analytics: React.FC = () => {
-  const { selectedClient, companyMetrics } = useClient();
+  const { selectedClient } = useClient();
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [insight, setInsight] = useState('');
+  const [loading, setLoading] = useState(true);
   const [loadingInsight, setLoadingInsight] = useState(false);
 
-  const clientMetrics = useMemo(() => {
-    const metrics = companyMetrics.filter(m => m.company_id === selectedClient.id);
-    if (metrics.length > 0) {
-      // Group by date/name for the chart
-      // For simplicity, let's assume we have 'reach' and 'conv' metrics
-      const grouped: any[] = [];
-      metrics.forEach(m => {
-        const date = new Date(m.recorded_at).toLocaleDateString([], { weekday: 'short' });
-        let entry = grouped.find(g => g.name === date);
-        if (!entry) {
-          entry = { name: date, reach: 0, conv: 0 };
-          grouped.push(entry);
-        }
-        if (m.metric_name === 'reach') entry.reach = m.metric_value;
-        if (m.metric_name === 'conv') entry.conv = m.metric_value;
-      });
-      return grouped;
-    }
-    // Fallback
-    return [
-      { name: 'Mon', reach: 4000, conv: 2400 },
-      { name: 'Tue', reach: 3000, conv: 1398 },
-      { name: 'Wed', reach: 2000, conv: 9800 },
-      { name: 'Thu', reach: 2780, conv: 3908 },
-      { name: 'Fri', reach: 1890, conv: 4800 },
-      { name: 'Sat', reach: 2390, conv: 3800 },
-      { name: 'Sun', reach: 3490, conv: 4300 },
-    ];
-  }, [companyMetrics, selectedClient.id]);
+  const fetchCampaigns = async () => {
+    if (!selectedClient.id || selectedClient.id === 'loading') return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('campaigns')
+        .select('*')
+        .eq('company_id', selectedClient.id)
+        .order('start_date', { ascending: true });
 
-  const summaryStats = useMemo(() => {
-    const metrics = companyMetrics.filter(m => m.company_id === selectedClient.id);
-    const getVal = (name: string, fallback: string) => {
-      const m = metrics.filter(x => x.metric_name === name).pop();
-      return m ? m.metric_value.toLocaleString() : fallback;
-    };
+      if (error) throw error;
+      setCampaigns(data || []);
+    } catch (err) {
+      console.error('Failed to fetch campaigns:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, [selectedClient.id]);
+
+  const chartData = useMemo(() => {
+    if (campaigns.length === 0) return [];
+    // Group by date or just show campaigns
+    return campaigns.map(c => ({
+      name: c.name,
+      spend: Number(c.spend),
+      revenue: Number(c.revenue),
+      impressions: c.impressions || 0
+    }));
+  }, [campaigns]);
+
+  const stats = useMemo(() => {
+    const totalSpend = campaigns.reduce((sum, c) => sum + Number(c.spend), 0);
+    const totalRevenue = campaigns.reduce((sum, c) => sum + Number(c.revenue), 0);
+    const totalImpressions = campaigns.reduce((sum, c) => sum + (c.impressions || 0), 0);
+    const avgRoas = totalSpend > 0 ? (totalRevenue / totalSpend).toFixed(2) : '0';
+
     return [
-      { label: 'Total Visits', val: getVal('total_visits', '284.5k'), change: '+14%' },
-      { label: 'Avg Session', val: getVal('avg_session', '4m 32s'), change: '+2%' },
-      { label: 'Bounce Rate', val: getVal('bounce_rate', '24.8%'), change: '-5%' },
-      { label: 'Brand Loyalty', val: getVal('brand_loyalty', '88/100'), change: '+12' }
+      { label: 'Total Ad Spend', val: `$${(totalSpend / 1000).toFixed(1)}k`, change: 'Live' },
+      { label: 'Total Revenue', val: `$${(totalRevenue / 1000).toFixed(1)}k`, change: 'Live' },
+      { label: 'Avg ROAS', val: `${avgRoas}x`, change: 'Live' },
+      { label: 'Total Impressions', val: `${(totalImpressions / 1000).toFixed(1)}k`, change: 'Live' }
     ];
-  }, [companyMetrics, selectedClient.id]);
+  }, [campaigns]);
 
   const generateInsight = async () => {
     setLoadingInsight(true);
-    const metricsSummary = "Growth trend rising, reach peaking at 4000 on Mondays, conversion spike on Wednesdays.";
-    const res = await getAnalyticsInsight(selectedClient.name, metricsSummary);
+    const metricsSummary = campaigns.map(c => `${c.name}: $${c.spend} spend, $${c.revenue} revenue`).join('. ');
+    const res = await getAnalyticsInsight(selectedClient.name, metricsSummary || "No active campaigns found.");
     setInsight(res);
     setLoadingInsight(false);
   };
@@ -101,10 +108,10 @@ const Analytics: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-          <h3 className="text-xl font-heading font-bold mb-8">Brand Reach Efficiency</h3>
+          <h3 className="text-xl font-heading font-bold mb-8">Campaign Spend vs Revenue</h3>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={clientMetrics}>
+              <BarChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                 <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
@@ -112,24 +119,25 @@ const Analytics: React.FC = () => {
                    cursor={{fill: '#ffffff05'}}
                    contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px' }}
                 />
-                <Bar dataKey="reach" fill="#064E3B" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="spend" fill="#064E3B" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="revenue" fill="#10B981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
         <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-          <h3 className="text-xl font-heading font-bold mb-8">Conversion Narrative</h3>
+          <h3 className="text-xl font-heading font-bold mb-8">Impression Trajectory</h3>
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={clientMetrics}>
+              <LineChart data={chartData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                 <XAxis dataKey="name" stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis stroke="#666" fontSize={10} tickLine={false} axisLine={false} />
                 <Tooltip 
                    contentStyle={{ backgroundColor: '#111', border: '1px solid #333', borderRadius: '8px' }}
                 />
-                <Line type="monotone" dataKey="conv" stroke="#064E3B" strokeWidth={3} dot={{ fill: '#064E3B', r: 4 }} activeDot={{ r: 6 }} />
+                <Line type="monotone" dataKey="impressions" stroke="#064E3B" strokeWidth={3} dot={{ fill: '#064E3B', r: 4 }} activeDot={{ r: 6 }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -137,12 +145,12 @@ const Analytics: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-         {summaryStats.map((stat, i) => (
+         {stats.map((stat, i) => (
            <div key={i} className="bg-white/5 border border-white/10 rounded-xl p-6 hover:border-brand-green/30 transition-colors">
               <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">{stat.label}</p>
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-bold text-white">{stat.val}</span>
-                <span className={`text-[10px] font-bold ${stat.change.startsWith('+') ? 'text-brand-green' : 'text-red-500'}`}>{stat.change}</span>
+                <span className={`text-[10px] font-bold ${stat.change === 'Live' ? 'text-brand-green' : 'text-red-500'}`}>{stat.change}</span>
               </div>
            </div>
          ))}
