@@ -19,6 +19,7 @@ import Messaging from './components/Messaging';
 import StrategyBoard from './components/StrategyBoard';
 import DocumentHub from './components/DocumentHub';
 import AdminDashboard from './components/AdminDashboard';
+import AdminApprovals from './components/AdminApprovals';
 import LiveVisionRoom from './components/LiveVisionRoom';
 import Campaigns from './components/Campaigns';
 import Profile from './components/Profile';
@@ -96,9 +97,12 @@ const SidebarContent: React.FC<{
       </div>
 
       {profile?.role === UserRole.ADMIN && (
-        <div className="pt-6 mt-6 border-t border-white/10">
+        <div className="pt-6 mt-6 border-t border-white/10 space-y-1">
           <div onClick={onItemClick}>
             <SidebarItem to="/admin" label="Admin Control" icon={<ICONS.Settings />} active={currentPath === '/admin'} />
+          </div>
+          <div onClick={onItemClick}>
+            <SidebarItem to="/admin/approvals" label="Approvals" icon={<ICONS.Growth />} active={currentPath === '/admin/approvals'} />
           </div>
         </div>
       )}
@@ -200,6 +204,7 @@ const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 {currentPath === '/documents' && 'Document Hub'}
                 {currentPath === '/profile' && 'Executive Profile'}
                 {currentPath === '/admin' && 'Wowstep Admin Control'}
+                {currentPath === '/admin/approvals' && 'Executive Approvals'}
               </h2>
 
               {clients.length > 1 && (
@@ -347,6 +352,16 @@ const App: React.FC = () => {
                 <OnboardingGate>
                   <RoleRoute allow={[UserRole.ADMIN]}>
                     <AppLayout><AdminDashboard /></AppLayout>
+                  </RoleRoute>
+                </OnboardingGate>
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/approvals" element={
+              <ProtectedRoute>
+                <OnboardingGate>
+                  <RoleRoute allow={[UserRole.ADMIN]}>
+                    <AppLayout><AdminApprovals /></AppLayout>
                   </RoleRoute>
                 </OnboardingGate>
               </ProtectedRoute>

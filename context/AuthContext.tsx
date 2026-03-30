@@ -32,7 +32,7 @@ async function fetchMyProfile(userId: string, email?: string): Promise<Profile |
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id,email,full_name,role,onboarding_complete')
+      .select('id,email,full_name,role,status,onboarding_complete')
       .eq('id', userId)
       .maybeSingle();
 
@@ -133,6 +133,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setProfileError(true);
           }
 
+          if (p?.status === 'pending' || p?.status === 'rejected') {
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+
           setProfile(p);
           setUser({
             id: initialSession.user.id,
@@ -177,6 +185,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setProfileError(true);
           }
 
+          if (p?.status === 'pending' || p?.status === 'rejected') {
+            await supabase.auth.signOut();
+            setSession(null);
+            setUser(null);
+            setLoading(false);
+            return;
+          }
+
           setProfile(p);
           profileFetchedRef.current = true;
           setUser({
@@ -207,7 +223,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: { session: newSession }, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         console.error("Login Failure:", error);
         if (error.message.includes('fetch')) {
@@ -225,6 +241,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         return { ok: false, error: error.message };
       }
+
+      // Check profile status immediately
+      if (newSession?.user) {
+        const p = await fetchMyProfile(newSession.user.id, newSession.user.email);
+        if (p?.status === 'pending') {
+          await supabase.auth.signOut();
+          return { ok: false, error: "Your company request is still pending approval. You'll be notified once an admin reviews it.", type: 'auth' };
+        }
+        if (p?.status === 'rejected') {
+          await supabase.auth.signOut();
+          return { ok: false, error: "Your company request was rejected. Please contact support for more information.", type: 'auth' };
+        }
+      }
+
       setNetworkError(false);
       setProjectPaused(false);
       return { ok: true };

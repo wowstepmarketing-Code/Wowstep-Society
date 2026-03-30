@@ -270,6 +270,13 @@ const AdminDashboard: React.FC = () => {
           <p className="text-gray-400 mt-1">Sovereign portfolio visibility and entity evolution.</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          <Link 
+            to="/admin/approvals"
+            className="w-full sm:w-auto px-5 py-2.5 bg-white/5 text-white font-bold rounded-lg border border-white/10 hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            Company Approvals
+          </Link>
           <button 
             onClick={() => setIsAdding(true)}
             className="w-full sm:w-auto px-5 py-2.5 bg-brand-green text-white font-bold rounded-lg hover:bg-brand-darkGreen transition-all shadow-lg shadow-brand-green/20 flex items-center justify-center gap-2"

@@ -28,7 +28,19 @@ export interface Profile {
   email: string | null;
   full_name: string | null;
   role: UserRole;
+  status: 'pending' | 'approved' | 'rejected' | null;
   onboarding_complete: boolean;
+}
+
+export interface CompanyRequest {
+  id: string;
+  company_name: string;
+  niche: string | null;
+  location: string | null;
+  requested_by: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejection_reason?: string;
+  created_at: string;
 }
 
 export interface ClientProfile {

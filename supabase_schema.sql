@@ -5,6 +5,7 @@ create table if not exists public.profiles (
   email text unique not null,
   full_name text,
   role text not null default 'CLIENT',
+  status text, -- NULL, 'pending', 'approved', 'rejected'
   onboarding_complete boolean not null default false,
   avatar_url text,
   created_at timestamptz not null default now()
@@ -342,6 +343,33 @@ begin
   where id = p_request_id;
 end;
 $$ language plpgsql security definer;
+
+-- 25) Company Requests Table
+create table if not exists public.company_requests (
+  id uuid primary key default gen_random_uuid(),
+  company_name text not null,
+  niche text,
+  location text,
+  requested_by uuid references public.profiles(id) on delete cascade,
+  status text not null default 'pending',
+  rejection_reason text,
+  created_at timestamptz not null default now()
+);
+
+alter table public.company_requests enable row level security;
+
+create policy "users_view_own_company_requests" on public.company_requests
+  for select using (
+    requested_by = auth.uid() or public.is_admin()
+  );
+
+create policy "users_insert_own_company_requests" on public.company_requests
+  for insert with check (
+    requested_by = auth.uid()
+  );
+
+create policy "admins_manage_company_requests" on public.company_requests
+  for all using (public.is_admin());
 
 -- 24) Automatic Profile Creation Trigger
 create or replace function public.handle_new_user()

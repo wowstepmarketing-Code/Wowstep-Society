@@ -1,0 +1,24 @@
+{
+  "name": "WowSociety",
+  "short_name": "WowSociety",
+  "description": "Brand Command Center for Wowstep Marketing",
+  "start_url": "/",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#000000",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/wow192/192/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://picsum.photos/seed/wow512/512/512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
