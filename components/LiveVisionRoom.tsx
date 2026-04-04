@@ -58,6 +58,22 @@ function createBlob(data: Float32Array): Blob {
 const LiveVisionRoom: React.FC = () => {
   const { user } = useAuth();
   const { selectedClient } = useClient();
+  const apiKey = (import.meta as any).env.VITE_GOOGLE_GENAI_KEY;
+
+  if (!apiKey) {
+    return (
+      <div className="h-full flex items-center justify-center text-white bg-black/20 rounded-3xl border border-white/10 p-10 text-center">
+        <div className="max-w-md space-y-4">
+          <div className="w-16 h-16 bg-brand-gold/10 border border-brand-gold/30 rounded-full flex items-center justify-center mx-auto text-brand-gold">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+          </div>
+          <h2 className="text-2xl font-heading font-bold">LiveVision requires API configuration</h2>
+          <p className="text-gray-400 text-sm">Please set VITE_GOOGLE_GENAI_KEY in your environment to enable real-time multisensory strategic consultation.</p>
+        </div>
+      </div>
+    );
+  }
+
   const [active, setActive] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [transcription, setTranscription] = useState<string[]>([]);
@@ -78,7 +94,7 @@ const LiveVisionRoom: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
       if (videoRef.current) videoRef.current.srcObject = stream;
 
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+      const ai = new GoogleGenAI({ apiKey });
       
       const inputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
       const outputCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
