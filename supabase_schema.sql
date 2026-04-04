@@ -1,4 +1,16 @@
 
+-- IMPORTANT: After modifying this file, you MUST run the following SQL directly in the Supabase SQL Editor 
+-- to ensure the handle_new_user trigger is updated correctly for new signups.
+--
+-- CREATE OR REPLACE FUNCTION public.handle_new_user()
+-- RETURNS trigger AS $$
+-- BEGIN
+--   INSERT INTO public.profiles (id, email, full_name, role, status)
+--   VALUES (new.id, new.email, '', 'CLIENT', 'approved');
+--   RETURN new;
+-- END;
+-- $$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- 1) Profiles Table
 create table if not exists public.profiles (
   id uuid primary key references auth.users on delete cascade,
@@ -375,8 +387,8 @@ create policy "admins_manage_company_requests" on public.company_requests
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, email, full_name, role)
-  values (new.id, new.email, '', 'CLIENT');
+  insert into public.profiles (id, email, full_name, role, status)
+  values (new.id, new.email, '', 'CLIENT', 'approved');
   return new;
 end;
 $$ language plpgsql security definer;

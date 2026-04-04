@@ -3,7 +3,6 @@ import React, { useMemo, useState } from 'react';
 import { GrowthPhase, UserRole, MilestoneStatus } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useClient } from '../context/ClientContext';
-import { suggestNextObjective, generateStrategicRoadmap } from '../lib/gemini';
 import { supabase } from '../lib/supabaseClient';
 
 const StrategyBoard: React.FC = () => {
@@ -43,40 +42,14 @@ const StrategyBoard: React.FC = () => {
 
   const handleSuggest = async () => {
     setLoadingSuggestion(true);
-    const res = await suggestNextObjective(selectedClient.name, selectedClient.phase);
+    const res = { title: "Strategic Alignment", description: "Society AI is currently in maintenance mode. Please consult the manual roadmap.", weight: 5 };
     setSuggestion(res);
     setLoadingSuggestion(false);
   };
 
   const handleArchitectRoadmap = async () => {
     if (!isAdmin) return;
-    if (!confirm(`Manifest custom AI roadmap for ${selectedClient.name}? Existing phase milestones will persist.`)) return;
-    
-    setArchitecting(true);
-    try {
-      const niche = (selectedClient as any).niche || "Luxury Growth";
-      const roadmap = await generateStrategicRoadmap(selectedClient.name, niche, selectedClient.phase);
-      
-      if (roadmap && roadmap.length > 0) {
-        const toInsert = roadmap.map((item: any) => ({
-          company_id: selectedClient.id,
-          phase: selectedClient.phase,
-          title: item.title,
-          description: item.description,
-          weight: item.weight,
-          status: 'locked'
-        }));
-
-        const { error } = await supabase.from('milestones').insert(toInsert);
-        if (error) throw error;
-        await refreshClients();
-      }
-    } catch (err) {
-      console.error("Strategy manifestation failed:", err);
-      alert("Neural architect failure. Re-attempt protocol.");
-    } finally {
-      setArchitecting(false);
-    }
+    alert("AI Roadmap Architect is currently offline. Please manually define strategic milestones.");
   };
 
   return (

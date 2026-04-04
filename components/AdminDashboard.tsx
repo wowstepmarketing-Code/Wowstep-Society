@@ -4,7 +4,6 @@ import { useNavigate, Link } from 'react-router-dom';
 import { GrowthPhase } from '../types';
 import { supabase } from '../lib/supabaseClient';
 import { useClient } from '../context/ClientContext';
-import { getGlobalEcosystemBriefing } from '../lib/gemini';
 
 type CompanyRow = {
   id: string;
@@ -222,8 +221,7 @@ const AdminDashboard: React.FC = () => {
 
   const generateBriefing = async () => {
     setLoadingBriefing(true);
-    const tiers = `Start: ${totals.startCount}, Scale: ${totals.scaleCount}, Elite: ${totals.eliteCount}`;
-    const res = await getGlobalEcosystemBriefing(`$${(totals.totalRevenue * 12 / 1000000).toFixed(1)}M`, clients.length, tiers);
+    const res = "Global ecosystem briefing is currently unavailable. Portfolio metrics are stabilizing.";
     setBriefing(res);
     setLoadingBriefing(false);
   };

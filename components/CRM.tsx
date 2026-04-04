@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useClient } from '../context/ClientContext';
-import { generateLeadOutreach } from '../lib/gemini';
 import { supabase } from '../lib/supabaseClient';
 import { CRMLead } from '../types';
 
@@ -61,7 +60,7 @@ const CRM: React.FC = () => {
 
   const handleAIOutreach = async (leadId: string, leadName: string, company: string) => {
     setGenerating(leadId);
-    const text = await generateLeadOutreach(selectedClient.name, leadName, company);
+    const text = "AI Outreach engine is currently offline. Manual outreach protocol engaged.";
     setScript({ leadId, content: text });
     setGenerating(null);
   };

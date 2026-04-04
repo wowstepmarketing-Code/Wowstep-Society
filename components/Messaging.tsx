@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useClient } from '../context/ClientContext';
-import { getStrategyAdvice } from '../lib/gemini';
 import { supabase } from '../lib/supabaseClient';
 
 type ChatMode = 'AI' | 'TEAM';
@@ -117,7 +116,7 @@ const Messaging: React.FC = () => {
       setMsgInput('');
       setAiLoading(true);
 
-      const advice = await getStrategyAdvice(selectedClient.name, selectedClient.phase, msgInput);
+      const advice = "Society AI is currently in maintenance mode. Please check back later for strategic insights.";
 
       const aiMessage = {
         id: (Date.now() + 1).toString(),

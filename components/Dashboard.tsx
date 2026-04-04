@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useClient } from '../context/ClientContext';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { getMarketTrends, getGrowthForecast, getLocalMarketIntelligence, isGeminiEnabled } from '../lib/gemini';
 import { supabase } from '../lib/supabaseClient';
 import { useMemo } from 'react';
 
@@ -166,8 +165,7 @@ const StrategicForecast: React.FC<{ brand: string, mrr: number }> = ({ brand, mr
 
   const generateForecast = async () => {
     setLoading(true);
-    const metrics = `Current MRR: $${mrr}. Trend: Aggressive Scaling.`;
-    const res = await getGrowthForecast(brand, metrics);
+    const res = "Strategic forecasting is currently offline. Please contact your account manager for manual projections.";
     setForecast(res);
     setLoading(false);
   };

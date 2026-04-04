@@ -75,58 +75,10 @@ export const supabaseConfigStatus = {
  */
 export const isSupabaseConfigured = supabaseConfigStatus.isConfigured;
 
-if (!supabaseConfigStatus.isConfigured) {
-  console.group('Supabase Configuration Diagnostic');
-  console.warn('Status:', supabaseConfigStatus.isConfigured ? 'Valid' : 'Invalid');
-  console.warn('URL Present:', supabaseConfigStatus.hasUrl);
-  console.warn('URL Valid:', supabaseConfigStatus.isValidUrl);
-  console.warn('Key Present:', supabaseConfigStatus.hasKey);
-  if (!supabaseConfigStatus.hasUrl || !supabaseConfigStatus.hasKey) {
-    console.info('Tip: Ensure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set in your .env file.');
-  }
-  console.groupEnd();
-}
-
-/**
- * Performs a basic health check on the Supabase project.
- * Useful for diagnosing "Paused" projects or network blocks.
- */
-export const checkSupabaseHealth = async (): Promise<{ status: number | string; ok: boolean; latency?: number }> => {
-  if (!supabaseConfigStatus.isConfigured) return { status: 'NOT_CONFIGURED', ok: false };
-  
-  const start = Date.now();
-  try {
-    // Add a 5-second timeout to the health check fetch
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-    // Ping the REST endpoint
-    const response = await fetch(`${finalUrl}/rest/v1/`, {
-      method: 'GET',
-      headers: { 'apikey': finalKey },
-      signal: controller.signal
-    });
-    
-    clearTimeout(timeoutId);
-    
-    return { 
-      status: response.status, 
-      ok: response.ok || response.status === 401, // 401 means reachable but maybe key issue
-      latency: Date.now() - start 
-    };
-  } catch (error: any) {
-    return { 
-      status: error.name === 'AbortError' ? 'TIMEOUT' : (error.message || 'FETCH_FAILED'), 
-      ok: false, 
-      latency: Date.now() - start 
-    };
-  }
-};
-
 /**
  * Initialize the Supabase client for the WowSociety ecosystem.
  */
-export const supabase = createClient(finalUrl || 'https://placeholder.supabase.co', finalKey || 'placeholder', {
+export const supabase = createClient(finalUrl, finalKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,

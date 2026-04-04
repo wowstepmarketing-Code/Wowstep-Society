@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useClient } from '../context/ClientContext';
 import { Campaign } from '../types';
 import { supabase } from '../lib/supabaseClient';
-import { getStrategyAdvice } from '../lib/gemini';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const Campaigns: React.FC = () => {
@@ -61,11 +60,7 @@ const Campaigns: React.FC = () => {
       `${c.name} (${c.platform}): Spend $${c.spend}, Revenue $${c.revenue}, CTR ${c.ctr ?? 0}%, CPC $${c.cpc ?? 0}, Conv ${c.conversion_rate ?? 0}%, CPM $${c.cpm ?? 0}, Imp ${c.impressions ?? 0}`
     ).join('. ');
 
-    const res = await getStrategyAdvice(
-      selectedClient.name, 
-      selectedClient.phase, 
-      `Analyze media deployment efficiency. Focus on ROI, CTR, and CPC. Suggest where to reallocate budget for maximum growth. Context: ${summary}`
-    );
+    const res = "Media optimization intelligence is currently recalibrating. Manual audit recommended.";
     
     setAiAdvice(res);
     setOptimizing(false);

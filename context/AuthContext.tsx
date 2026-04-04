@@ -1,6 +1,6 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useRef } from 'react';
-import { supabase, isSupabaseConfigured, supabaseConfigStatus, checkSupabaseHealth, finalUrl, finalKey } from '../lib/supabaseClient';
+import { supabase, isSupabaseConfigured, supabaseConfigStatus, finalUrl, finalKey } from '../lib/supabaseClient';
 import { UserRole, Profile, User } from '../types';
 
 type AuthContextValue = {
@@ -133,7 +133,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setProfileError(true);
           }
 
-          if (p?.status === 'pending' || p?.status === 'rejected') {
+          if (p?.status === 'pending' && !p?.onboarding_complete) {
             await supabase.auth.signOut();
             setSession(null);
             setUser(null);
@@ -185,7 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setProfileError(true);
           }
 
-          if (p?.status === 'pending' || p?.status === 'rejected') {
+          if (p?.status === 'pending' && !p?.onboarding_complete) {
             await supabase.auth.signOut();
             setSession(null);
             setUser(null);
@@ -245,13 +245,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check profile status immediately
       if (newSession?.user) {
         const p = await fetchMyProfile(newSession.user.id, newSession.user.email);
-        if (p?.status === 'pending') {
+        if (p?.status === 'pending' && !p?.onboarding_complete) {
           await supabase.auth.signOut();
           return { ok: false, error: "Your company request is still pending approval. You'll be notified once an admin reviews it.", type: 'auth' };
-        }
-        if (p?.status === 'rejected') {
-          await supabase.auth.signOut();
-          return { ok: false, error: "Your company request was rejected. Please contact support for more information.", type: 'auth' };
         }
       }
 

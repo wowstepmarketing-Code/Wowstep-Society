@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { useClient } from '../context/ClientContext';
-import { getAnalyticsInsight } from '../lib/gemini';
 import { supabase } from '../lib/supabaseClient';
 import { Campaign } from '../types';
 
@@ -63,8 +62,7 @@ const Analytics: React.FC = () => {
 
   const generateInsight = async () => {
     setLoadingInsight(true);
-    const metricsSummary = campaigns.map(c => `${c.name}: $${c.spend} spend, $${c.revenue} revenue`).join('. ');
-    const res = await getAnalyticsInsight(selectedClient.name, metricsSummary || "No active campaigns found.");
+    const res = "Strategic analytics narrative is currently pending data synchronization.";
     setInsight(res);
     setLoadingInsight(false);
   };
